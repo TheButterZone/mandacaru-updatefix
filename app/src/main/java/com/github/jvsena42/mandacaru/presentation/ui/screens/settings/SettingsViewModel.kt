@@ -8,10 +8,12 @@ import androidx.lifecycle.viewModelScope
 import com.github.jvsena42.mandacaru.data.FlorestaRpc
 import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
+import com.github.jvsena42.mandacaru.R
 import com.github.jvsena42.mandacaru.domain.model.florestaRPC.AddNodeCommand
 import com.github.jvsena42.mandacaru.presentation.utils.DescriptorUtils
 import com.github.jvsena42.mandacaru.presentation.utils.EventFlow
 import com.github.jvsena42.mandacaru.presentation.utils.EventFlowImpl
+import com.github.jvsena42.mandacaru.presentation.utils.PeerAddressValidator
 import com.github.jvsena42.mandacaru.presentation.utils.WalletBirthday
 import com.github.jvsena42.mandacaru.presentation.utils.getElectrumPort
 import com.github.jvsena42.mandacaru.presentation.utils.getNetwork
@@ -19,12 +21,14 @@ import com.github.jvsena42.mandacaru.presentation.utils.getRpcPort
 import com.github.jvsena42.mandacaru.presentation.utils.removeSpaces
 import kotlinx.coroutines.Dispatchers
 import java.io.File
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import com.florestad.Network as FlorestaNetwork
 
@@ -37,6 +41,8 @@ class SettingsViewModel(
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
+
+    private var nodeAddressValidationJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -71,8 +77,15 @@ class SettingsViewModel(
             SettingsAction.OnClickRescan -> rescan()
             SettingsAction.ClearSnackBarMessage -> _uiState.update { it.copy(snackBarMessage = "") }
             SettingsAction.OnClickConnectNode -> connectNode()
-            is SettingsAction.OnNodeAddressChanged -> _uiState.update {
-                it.copy(nodeAddress = action.address.removeSpaces())
+            is SettingsAction.OnNodeAddressChanged -> {
+                _uiState.update {
+                    it.copy(
+                        nodeAddress = action.address.removeSpaces(),
+                        nodeAddressError = null,
+                        isNodeAddressValid = false,
+                    )
+                }
+                debouncedValidateNodeAddress()
             }
 
             is SettingsAction.OnNetworkSelected -> handleNetworkSelected(action)
@@ -183,7 +196,45 @@ class SettingsViewModel(
         }
     }
 
+    private fun debouncedValidateNodeAddress() {
+        nodeAddressValidationJob?.cancel()
+        nodeAddressValidationJob = viewModelScope.launch {
+            delay(VALIDATION_DEBOUNCE_MS.milliseconds)
+            val address = _uiState.value.nodeAddress
+            val result = PeerAddressValidator.validate(address)
+            _uiState.update {
+                when (result) {
+                    PeerAddressValidator.Result.Valid -> it.copy(
+                        isNodeAddressValid = true,
+                        nodeAddressError = null,
+                    )
+                    PeerAddressValidator.Result.Empty -> it.copy(
+                        isNodeAddressValid = false,
+                        nodeAddressError = null,
+                    )
+                    PeerAddressValidator.Result.InvalidIpv4 -> it.copy(
+                        isNodeAddressValid = false,
+                        nodeAddressError = R.string.node_address_error_invalid_ipv4,
+                    )
+                    PeerAddressValidator.Result.InvalidIpv6 -> it.copy(
+                        isNodeAddressValid = false,
+                        nodeAddressError = R.string.node_address_error_invalid_ipv6,
+                    )
+                    PeerAddressValidator.Result.InvalidPort -> it.copy(
+                        isNodeAddressValid = false,
+                        nodeAddressError = R.string.node_address_error_invalid_port,
+                    )
+                    PeerAddressValidator.Result.InvalidFormat -> it.copy(
+                        isNodeAddressValid = false,
+                        nodeAddressError = R.string.node_address_error_invalid_format,
+                    )
+                }
+            }
+        }
+    }
+
     private fun connectNode() {
+        if (!_uiState.value.isNodeAddressValid) return
         val address = _uiState.value.nodeAddress
         if (address.isEmpty()) return
         _uiState.update { it.copy(isLoading = true) }
@@ -195,6 +246,8 @@ class SettingsViewModel(
                 _uiState.update {
                     it.copy(
                         nodeAddress = "",
+                        nodeAddressError = null,
+                        isNodeAddressValid = false,
                         snackBarMessage = "Attempting connection to $address…"
                     )
                 }
@@ -279,7 +332,13 @@ class SettingsViewModel(
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        nodeAddressValidationJob?.cancel()
+    }
+
     companion object {
         private const val TAG = "SettingsViewModel"
+        private const val VALIDATION_DEBOUNCE_MS = 500L
     }
 }

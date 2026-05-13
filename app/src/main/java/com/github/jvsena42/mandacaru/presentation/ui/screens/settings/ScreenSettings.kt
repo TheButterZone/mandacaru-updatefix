@@ -533,6 +533,10 @@ private fun ScreenSettings(
                                 maxLines = 1,
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
+                                isError = uiState.nodeAddressError != null,
+                                supportingText = uiState.nodeAddressError?.let { resId ->
+                                    { Text(stringResource(resId)) }
+                                },
                                 keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(
                                     onDone = { onAction(SettingsAction.OnClickConnectNode) }
@@ -563,7 +567,7 @@ private fun ScreenSettings(
 
                             Button(
                                 onClick = { onAction(SettingsAction.OnClickConnectNode) },
-                                enabled = !uiState.isLoading && uiState.nodeAddress.isNotBlank(),
+                                enabled = !uiState.isLoading && uiState.isNodeAddressValid,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
