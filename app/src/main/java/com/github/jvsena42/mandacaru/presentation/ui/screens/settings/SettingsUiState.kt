@@ -10,6 +10,8 @@ data class SettingsUiState(
     val descriptorText: String = "",
     val electrumAddress: String = "",
     val nodeAddress: String = "",
+    val nodeAddressError: Int? = null,
+    val isNodeAddressValid: Boolean = false,
     val snackBarMessage: String = "",
     val selectedNetwork: String = "",
     val isLoading: Boolean = false,
