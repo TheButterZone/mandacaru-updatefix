@@ -76,6 +76,17 @@ Run a full Bitcoin node directly on your phone with minimal storage requirements
 
 Utreexo is a dynamic hash-based accumulator that allows Bitcoin nodes to validate the blockchain without storing the full UTXO set. This reduces storage requirements from tens of gigabytes to just a few megabytes, making it practical to run a full validating node on mobile devices.
 
+## A note on validation: `assumeutreexo` is enabled by default
+
+Mandacaru ships with `assumeutreexo` turned on. At startup the node trusts a hardcoded Utreexo state snapshot (the accumulator roots at a specific block height) and begins full validation from that point forward — verifying every new block, transaction, signature, and consensus rule from the snapshot height onward.
+
+What this means in practice:
+- **Fast startup**: the node skips re-validating ancient history and is usable in minutes instead of days.
+- **Full validation going forward**: from the snapshot height on, Mandacaru is a fully validating Bitcoin node — no trusted third party for new blocks.
+- **A trust assumption about pre-snapshot history**: you are trusting that the bundled snapshot matches Bitcoin's true historical chain state. This is the same trade-off as Bitcoin Core's `assumeutxo` and `assumevalid`.
+
+If you want zero trust assumptions, a from-genesis IBD (initial block download) without `assumeutreexo` is not currently exposed in the UI; this can be revisited as Floresta's options evolve.
+
 ## Installation
 
 ### Requirements
