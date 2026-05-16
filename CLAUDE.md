@@ -34,12 +34,20 @@ Mandacaru is an Android application that runs a lightweight Bitcoin validation n
 
 ### Code Quality
 ```bash
+# Run static analysis (must pass before opening a PR)
+./gradlew detekt
+
+# Run Android Lint on the debug variant (must pass before opening a PR)
+./gradlew lintDebug
+
 # Clean build
 ./gradlew clean
 
 # Check for updates
 ./gradlew dependencyUpdates
 ```
+
+Lint configuration lives at `app/lint.xml`; detekt configuration lives at `config/detekt/detekt.yml`. When a rule fires on generated code or on an intentional project decision (e.g. ARM64-only build), prefer tuning the config over disabling the rule globally.
 
 ### Development Setup
 - Requires Android 10 (API 29) minimum

@@ -212,7 +212,6 @@ private fun CameraDeniedFallback(onPasteFallback: () -> Unit) {
             Text(stringResource(R.string.open_app_settings))
         }
     }
-    Box(Modifier.fillMaxWidth())
 }
 
 private const val SHEET_HEIGHT_FRACTION = 0.9f
