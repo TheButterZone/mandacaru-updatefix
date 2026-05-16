@@ -62,6 +62,9 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+    lint {
+        lintConfig = file("lint.xml")
+    }
 }
 
 kotlin {
@@ -116,7 +119,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
 
     testImplementation(libs.junit)
-    testImplementation("org.json:json:20240303")
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
