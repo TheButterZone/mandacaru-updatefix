@@ -24,6 +24,8 @@ camerax = "1.6.1"
 mlkit-barcode = "17.3.0"
 coreSplashscreen = "1.0.1"
 orgJson = "20240303"
+hummingbird = "1.7.4"
+bdk = "2.3.1"
 
 [libraries]
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
@@ -66,6 +68,8 @@ androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", versi
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode" }
 org-json = { module = "org.json:json", version.ref = "orgJson" }
+hummingbird = { module = "com.sparrowwallet:hummingbird", version.ref = "hummingbird" }
+bdk-android = { module = "org.bitcoindevkit:bdk-android", version.ref = "bdk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
