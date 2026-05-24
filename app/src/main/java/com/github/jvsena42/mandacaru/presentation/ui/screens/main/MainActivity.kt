@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -42,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +73,7 @@ import com.github.jvsena42.mandacaru.presentation.utils.restartApplication
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.KoinAndroidContext
+import org.koin.androidx.compose.koinViewModel
 
 class MainActivity : ComponentActivity() {
 
@@ -175,8 +179,10 @@ private fun MandacaruRoot(
     restartApplication: () -> Unit,
     requestNotificationPermission: () -> Unit,
     hasNotificationPermission: Boolean,
+    mainViewModel: MainViewModel = koinViewModel(),
 ) {
     var showSplash by remember { mutableStateOf(showSplashOnStart) }
+    val isUpdateBadgeVisible by mainViewModel.isUpdateBadgeVisible.collectAsState()
     LaunchedEffect(Unit) {
         if (showSplash) {
             delay(SPLASH_DURATION_MS)
@@ -191,6 +197,7 @@ private fun MandacaruRoot(
             restartApplication = restartApplication,
             requestNotificationPermission = requestNotificationPermission,
             hasNotificationPermission = hasNotificationPermission,
+            isSettingsBadgeVisible = isUpdateBadgeVisible,
         )
         AnimatedVisibility(
             visible = showSplash,
@@ -210,7 +217,8 @@ private fun MainScreen(
     restartApplication: () -> Unit,
     modifier: Modifier = Modifier,
     requestNotificationPermission: () -> Unit = {},
-    hasNotificationPermission: Boolean = true
+    hasNotificationPermission: Boolean = true,
+    isSettingsBadgeVisible: Boolean = false,
 ) {
     val pages = Destinations.entries
     val pagerState = rememberPagerState(
@@ -258,6 +266,7 @@ private fun MainScreen(
                     pages = pages,
                     selectedIndex = pagerState.currentPage,
                     onSelect = onSelectDestination,
+                    isSettingsBadgeVisible = isSettingsBadgeVisible,
                 )
             }
         }
@@ -273,6 +282,7 @@ private fun MainScreen(
                     pages = pages,
                     selectedIndex = pagerState.currentPage,
                     onSelect = onSelectDestination,
+                    isSettingsBadgeVisible = isSettingsBadgeVisible,
                 )
             }
             HorizontalPager(
@@ -305,6 +315,7 @@ private fun AppNavigationBar(
     pages: List<Destinations>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    isSettingsBadgeVisible: Boolean,
 ) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -323,7 +334,7 @@ private fun AppNavigationBar(
                 selected = selected,
                 onClick = { onSelect(index) },
                 label = { DestinationLabel(destination, selected) },
-                icon = { DestinationIcon(destination) },
+                icon = { DestinationIcon(destination, showBadge(destination, isSettingsBadgeVisible)) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -341,6 +352,7 @@ private fun AppNavigationRail(
     pages: List<Destinations>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    isSettingsBadgeVisible: Boolean,
 ) {
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -353,7 +365,7 @@ private fun AppNavigationRail(
                 selected = selected,
                 onClick = { onSelect(index) },
                 label = { DestinationLabel(destination, selected) },
-                icon = { DestinationIcon(destination) },
+                icon = { DestinationIcon(destination, showBadge(destination, isSettingsBadgeVisible)) },
                 colors = NavigationRailItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -379,12 +391,24 @@ private fun DestinationLabel(destination: Destinations, selected: Boolean) {
 }
 
 @Composable
-private fun DestinationIcon(destination: Destinations) {
-    Icon(
-        painter = painterResource(destination.icon),
-        contentDescription = destination.label
-    )
+private fun DestinationIcon(destination: Destinations, showBadge: Boolean = false) {
+    if (showBadge) {
+        BadgedBox(badge = { Badge() }) {
+            Icon(
+                painter = painterResource(destination.icon),
+                contentDescription = destination.label
+            )
+        }
+    } else {
+        Icon(
+            painter = painterResource(destination.icon),
+            contentDescription = destination.label
+        )
+    }
 }
+
+private fun showBadge(destination: Destinations, isSettingsBadgeVisible: Boolean): Boolean =
+    destination == Destinations.SETTINGS && isSettingsBadgeVisible
 
 @PreviewLightDark
 @Composable

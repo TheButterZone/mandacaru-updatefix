@@ -1,9 +1,12 @@
+import com.android.build.api.variant.impl.VariantOutputImpl
 import java.util.Properties
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) load(file.inputStream())
 }
+
+val appVersionName = "0.10.3"
 
 plugins {
     alias(libs.plugins.android.application)
@@ -20,7 +23,7 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 21
-        versionName = "0.10.3"
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -64,6 +67,16 @@ android {
     }
     lint {
         lintConfig = file("lint.xml")
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        // AGP 9 removed the legacy applicationVariants output API; the APK file
+        // name is now set through the internal VariantOutputImpl.
+        variant.outputs.forEach { output ->
+            (output as? VariantOutputImpl)?.outputFileName?.set("Mandacaru-$appVersionName.apk")
+        }
     }
 }
 
