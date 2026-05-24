@@ -1,6 +1,10 @@
 package com.github.jvsena42.mandacaru.presentation.ui.screens.settings
 
 import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -39,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
@@ -95,6 +100,7 @@ import com.florestad.Network
 import com.github.jvsena42.mandacaru.BuildConfig
 import com.github.jvsena42.mandacaru.R
 import com.github.jvsena42.mandacaru.domain.model.Constants
+import com.github.jvsena42.mandacaru.domain.model.UpdateStatus
 import com.github.jvsena42.mandacaru.presentation.ui.components.ExpandableHeader
 import com.github.jvsena42.mandacaru.presentation.ui.theme.MandacaruTheme
 import com.github.jvsena42.mandacaru.presentation.utils.WalletBirthday
@@ -113,7 +119,13 @@ fun ScreenSettings(
     val uiState by viewModel.uiState.collectAsState()
     val currentRestartApplication by rememberUpdatedState(restartApplication)
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val shareLogsTitle = stringResource(R.string.share_logs)
+    val installPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.onAction(SettingsAction.OnClickDownloadUpdate)
+    }
     ScreenSettings(
         uiState = uiState,
         onAction = viewModel::onAction,
@@ -135,6 +147,15 @@ fun ScreenSettings(
                         Intent.createChooser(shareIntent, shareLogsTitle)
                     )
                 }
+                is SettingsEvents.RequestInstallPermission -> {
+                    installPermissionLauncher.launch(
+                        Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            "package:${context.packageName}".toUri()
+                        )
+                    )
+                }
+                is SettingsEvents.OpenReleasePage -> uriHandler.openUri(event.url)
             }
         }
     }
@@ -748,15 +769,15 @@ private fun ScreenSettings(
                                 }
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                            Text(
-                                text = stringResource(R.string.check_for_updates),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clickable {
-                                    uriHandler.openUri("https://github.com/jvsena42/mandacaru/releases/latest")
-                                }
+                            HorizontalDivider()
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            UpdateRow(
+                                updateStatus = uiState.updateStatus,
+                                onAction = onAction,
                             )
                         }
                     }
@@ -867,6 +888,73 @@ private fun BirthdayRestartConfirmDialog(
             }
         },
     )
+}
+
+@Composable
+private fun UpdateRow(
+    updateStatus: UpdateStatus,
+    onAction: (SettingsAction) -> Unit,
+) {
+    val uriHandler = LocalUriHandler.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when {
+            updateStatus.isChecking -> {
+                Text(
+                    text = stringResource(R.string.checking_for_updates),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            updateStatus.isUpdateAvailable -> {
+                Text(
+                    text = stringResource(R.string.update_available),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.latest_version, updateStatus.latestVersion),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { onAction(SettingsAction.OnClickDownloadUpdate) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(stringResource(R.string.download_update))
+                }
+            }
+
+            updateStatus.checkFailed -> {
+                Text(
+                    text = stringResource(R.string.check_for_updates),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable {
+                        uriHandler.openUri(updateStatus.releasePageUrl)
+                    }
+                )
+            }
+
+            else -> {
+                Text(
+                    text = stringResource(R.string.up_to_date),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -6,11 +6,14 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.SharedPreferencesMigration
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.github.jvsena42.mandacaru.data.AppUpdateRepository
 import com.github.jvsena42.mandacaru.data.FlorestaRpc
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
 import com.github.jvsena42.mandacaru.data.PreferencesDataSourceImpl
 import com.github.jvsena42.mandacaru.data.floresta.FlorestaDaemonImpl
 import com.github.jvsena42.mandacaru.data.floresta.FlorestaRpcImpl
+import com.github.jvsena42.mandacaru.data.update.AppUpdateDownloader
+import com.github.jvsena42.mandacaru.data.update.AppUpdateRepositoryImpl
 import com.github.jvsena42.mandacaru.domain.floresta.FlorestaDaemon
 import com.github.jvsena42.mandacaru.domain.floresta.UtreexoBridgeAutoConnect
 import com.github.jvsena42.mandacaru.domain.floresta.UtreexoSnapshotService
@@ -19,6 +22,7 @@ import com.github.jvsena42.mandacaru.domain.scan.DefaultQrTransactionScanner
 import com.github.jvsena42.mandacaru.domain.scan.QrTransactionScanner
 import com.github.jvsena42.mandacaru.domain.scan.TransactionDecoder
 import com.github.jvsena42.mandacaru.presentation.ui.screens.blockchain.BlockchainViewModel
+import com.github.jvsena42.mandacaru.presentation.ui.screens.main.MainViewModel
 import com.github.jvsena42.mandacaru.presentation.ui.screens.node.NodeViewModel
 import com.github.jvsena42.mandacaru.presentation.ui.screens.transaction.TransactionViewModel
 import com.github.jvsena42.mandacaru.presentation.ui.screens.settings.SettingsViewModel
@@ -59,7 +63,16 @@ val presentationModule = module {
             preferencesDataSource = get(),
         )
     }
-    viewModel { SettingsViewModel(florestaRpc = get(), preferencesDataSource = get(), context = androidContext()) }
+    viewModel {
+        SettingsViewModel(
+            florestaRpc = get(),
+            preferencesDataSource = get(),
+            appUpdateRepository = get(),
+            appUpdateDownloader = get(),
+            context = androidContext(),
+        )
+    }
+    viewModel { MainViewModel(appUpdateRepository = get()) }
     viewModel {
         TransactionViewModel(
             florestaRpc = get(),
@@ -78,6 +91,10 @@ val dataModule = module {
         )
     }
     single<FlorestaRpc> { FlorestaRpcImpl(gson = Gson(), preferencesDataSource = get()) }
+    single<AppUpdateRepository> {
+        AppUpdateRepositoryImpl(gson = Gson(), preferencesDataSource = get())
+    }
+    single { AppUpdateDownloader(context = androidContext()) }
     single<PreferencesDataSource> {
         PreferencesDataSourceImpl(
             dataStore = androidContext().florestaDataStore

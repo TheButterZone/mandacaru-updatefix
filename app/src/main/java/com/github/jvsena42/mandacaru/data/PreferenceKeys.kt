@@ -8,5 +8,9 @@ enum class PreferenceKeys(val dataStoreKey: Preferences.Key<String>) {
     CURRENT_RPC_PORT(stringPreferencesKey("CURRENT_RPC_PORT")),
     PENDING_UTREEXO_SNAPSHOT(stringPreferencesKey("PENDING_UTREEXO_SNAPSHOT")),
     WALLET_BIRTHDAY_YEAR(stringPreferencesKey("WALLET_BIRTHDAY_YEAR")),
-    WALLET_NEEDS_RESCAN(stringPreferencesKey("WALLET_NEEDS_RESCAN"))
+    WALLET_NEEDS_RESCAN(stringPreferencesKey("WALLET_NEEDS_RESCAN")),
+    UPDATE_LAST_CHECK(stringPreferencesKey("UPDATE_LAST_CHECK")),
+    UPDATE_LATEST_VERSION(stringPreferencesKey("UPDATE_LATEST_VERSION")),
+    UPDATE_LATEST_APK_URL(stringPreferencesKey("UPDATE_LATEST_APK_URL")),
+    UPDATE_SEEN_VERSION(stringPreferencesKey("UPDATE_SEEN_VERSION"))
 }

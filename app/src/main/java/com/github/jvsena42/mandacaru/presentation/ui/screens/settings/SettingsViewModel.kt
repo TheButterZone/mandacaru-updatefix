@@ -6,9 +6,11 @@ import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.github.jvsena42.mandacaru.data.AppUpdateRepository
 import com.github.jvsena42.mandacaru.data.FlorestaRpc
 import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
+import com.github.jvsena42.mandacaru.data.update.AppUpdateDownloader
 import com.github.jvsena42.mandacaru.R
 import com.github.jvsena42.mandacaru.domain.model.florestaRPC.AddNodeCommand
 import com.github.jvsena42.mandacaru.presentation.utils.DescriptorUtils
@@ -37,6 +39,8 @@ import com.florestad.Network as FlorestaNetwork
 class SettingsViewModel(
     private val florestaRpc: FlorestaRpc,
     private val preferencesDataSource: PreferencesDataSource,
+    private val appUpdateRepository: AppUpdateRepository,
+    private val appUpdateDownloader: AppUpdateDownloader,
     @field:SuppressLint("StaticFieldLeak") private val context: Context,
 ) : ViewModel(), EventFlow<SettingsEvents> by EventFlowImpl() {
 
@@ -63,6 +67,16 @@ class SettingsViewModel(
             updateElectrumAddress()
         }
         getDescriptors()
+        observeUpdateStatus()
+    }
+
+    private fun observeUpdateStatus() {
+        viewModelScope.launch { appUpdateRepository.refresh() }
+        viewModelScope.launch {
+            appUpdateRepository.updateStatus.collect { status ->
+                _uiState.update { it.copy(updateStatus = status) }
+            }
+        }
     }
 
     @Suppress("CyclomaticComplexMethod")
@@ -105,9 +119,9 @@ class SettingsViewModel(
                 it.copy(isNodeExpanded = !it.isNodeExpanded)
             }
 
-            SettingsAction.ToggleAboutExpanded -> _uiState.update {
-                it.copy(isAboutExpanded = !it.isAboutExpanded)
-            }
+            SettingsAction.ToggleAboutExpanded -> toggleAboutExpanded()
+
+            SettingsAction.OnClickDownloadUpdate -> downloadUpdate()
 
             SettingsAction.ToggleDonateExpanded -> _uiState.update {
                 it.copy(isDonateExpanded = !it.isDonateExpanded)
@@ -137,6 +151,28 @@ class SettingsViewModel(
 
             SettingsAction.OnConfirmBirthdayRestart -> applyBirthdayYearAndRestart()
         }
+    }
+
+    private fun toggleAboutExpanded() {
+        val willExpand = !_uiState.value.isAboutExpanded
+        _uiState.update { it.copy(isAboutExpanded = willExpand) }
+        if (willExpand) {
+            viewModelScope.launch { appUpdateRepository.markUpdateSeen() }
+        }
+    }
+
+    private fun downloadUpdate() {
+        val status = _uiState.value.updateStatus
+        val url = status.apkDownloadUrl
+        if (url == null) {
+            viewModelScope.sendEvent(SettingsEvents.OpenReleasePage(status.releasePageUrl))
+            return
+        }
+        if (!appUpdateDownloader.canInstall()) {
+            viewModelScope.sendEvent(SettingsEvents.RequestInstallPermission)
+            return
+        }
+        appUpdateDownloader.enqueue(url, "Mandacaru-${status.latestVersion}.apk")
     }
 
     private fun applyBirthdayYearAndRestart() {
