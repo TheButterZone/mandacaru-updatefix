@@ -91,6 +91,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.window.core.layout.WindowSizeClass
+import java.text.NumberFormat
 import com.github.jvsena42.mandacaru.R
 import com.github.jvsena42.mandacaru.domain.model.florestaRPC.response.PeerInfoResult
 import com.github.jvsena42.mandacaru.presentation.ui.components.ExpandableHeader
@@ -279,6 +280,7 @@ fun ScreenNode(
                 isHeaderSync = isHeaderSync,
                 isFilterSync = isFilterSync,
                 isStalled = isStalled,
+                isWalletScanning = isWalletScanning,
                 syncTitleRes = syncTitleRes,
                 onPingClick = { showPingConfirmation = true },
                 onRequestDisconnect = { peerToDisconnect = it },
@@ -334,6 +336,10 @@ fun ScreenNode(
                         syncPercentage = uiState.syncPercentage,
                         syncDecimal = uiState.syncDecimal,
                         rescanInProgress = uiState.rescanInProgress,
+                        rescanProgressDecimal = uiState.rescanProgressDecimal,
+                        rescanProgressPercentage = uiState.rescanProgressPercentage,
+                        rescanBlocksProcessed = uiState.rescanBlocksProcessed,
+                        rescanBlocksTotal = uiState.rescanBlocksTotal,
                     )
                 }
                 item { NetworkInfoCard(uiState = uiState) }
@@ -730,6 +736,8 @@ private data class SyncProgressInputs(
     val filterSyncPercentage: String,
     val syncPercentage: String,
     val syncDecimal: Float,
+    val rescanProgressDecimal: Float?,
+    val rescanProgressPercentage: String,
 )
 
 private fun SyncProgressInputs.rawDecimal(): Float? = when {
@@ -737,9 +745,9 @@ private fun SyncProgressInputs.rawDecimal(): Float? = when {
     isHeaderSync && headerSyncDecimal != null -> headerSyncDecimal
     isHeaderSync -> null
     isFilterSync && filterSyncDecimal != null -> filterSyncDecimal
-    // Wallet scan has no meaningful percentage here; show an indeterminate bar
-    // rather than a misleading 100%.
-    isWalletScanning -> null
+    // Use the real rescan progress when the daemon reports a block total;
+    // otherwise show an indeterminate bar rather than a misleading 100%.
+    isWalletScanning -> rescanProgressDecimal
     else -> syncDecimal
 }
 
@@ -748,7 +756,7 @@ private fun SyncProgressInputs.percentageText(): String? = when {
     isHeaderSync && headerSyncDecimal != null -> "$headerSyncPercentage%"
     isHeaderSync -> null
     isFilterSync && filterSyncDecimal != null -> "$filterSyncPercentage%"
-    isWalletScanning -> null
+    isWalletScanning -> rescanProgressDecimal?.let { "$rescanProgressPercentage%" }
     else -> "$syncPercentage%"
 }
 
@@ -829,6 +837,10 @@ private fun SyncProgressCard(
     syncPercentage: String,
     syncDecimal: Float,
     rescanInProgress: Boolean,
+    rescanProgressDecimal: Float?,
+    rescanProgressPercentage: String,
+    rescanBlocksProcessed: Int,
+    rescanBlocksTotal: Int,
 ) {
     val inputs = SyncProgressInputs(
         isStalled = isStalled,
@@ -841,6 +853,8 @@ private fun SyncProgressCard(
         filterSyncPercentage = filterSyncPercentage,
         syncPercentage = syncPercentage,
         syncDecimal = syncDecimal,
+        rescanProgressDecimal = rescanProgressDecimal,
+        rescanProgressPercentage = rescanProgressPercentage,
     )
     val rawDecimal = inputs.rawDecimal()
     val animatedDecimal by animateFloatAsState(
@@ -889,6 +903,20 @@ private fun SyncProgressCard(
                 rawDecimal = rawDecimal,
                 animatedDecimal = animatedDecimal,
             )
+
+            if (isWalletScanning && rescanBlocksTotal > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val numberFormat = remember { NumberFormat.getNumberInstance() }
+                Text(
+                    stringResource(
+                        R.string.scanning_wallet_blocks,
+                        numberFormat.format(rescanBlocksProcessed),
+                        numberFormat.format(rescanBlocksTotal),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                )
+            }
         }
     }
 }
@@ -1309,6 +1337,48 @@ private fun StalledPreview() {
                     syncDecimal = 1f,
                     ibd = false,
                     isStalled = true,
+                    utreexoPeerCount = 1,
+                    uptime = "14h 02m",
+                    peers = listOf(
+                        PeerInfoResult(
+                            address = "194.145.199.26:8333",
+                            initialHeight = 947_390,
+                            kind = "regular",
+                            services = "ServiceFlags(NETWORK|WITNESS|COMPACT_FILTERS|UTREEXO)",
+                            state = "Ready",
+                            userAgent = "/Satoshi:30.0.0/"
+                        ),
+                    )
+                )
+            )
+        }
+    }
+}
+
+@PreviewLightDark
+@Preview(name = "Tablet scanning", widthDp = 1280, heightDp = 840)
+@Composable
+private fun WalletScanningPreview() {
+    MandacaruTheme {
+        Surface {
+            ScreenNode(
+                NodeUiState(
+                    numberOfPeers = "8",
+                    blockHeight = "800,000",
+                    headerHeightRaw = 800_000,
+                    blockHash = "00000cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+                    network = "BITCOIN",
+                    difficulty = "138.97 T",
+                    syncPercentage = "100.00",
+                    syncDecimal = 1f,
+                    filterSyncDecimal = 1f,
+                    filterSyncPercentage = "100.00",
+                    ibd = false,
+                    rescanInProgress = true,
+                    rescanProgressDecimal = 0.42f,
+                    rescanProgressPercentage = "42.00",
+                    rescanBlocksProcessed = 336_000,
+                    rescanBlocksTotal = 800_000,
                     utreexoPeerCount = 1,
                     uptime = "14h 02m",
                     peers = listOf(
