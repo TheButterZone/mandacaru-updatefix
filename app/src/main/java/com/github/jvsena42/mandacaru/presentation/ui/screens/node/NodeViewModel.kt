@@ -64,6 +64,13 @@ class NodeViewModel(
                             .toFloat()
                         (numerator / denominator).coerceIn(0f, 1f)
                     }
+                    val rescanTotal = data.result.rescanBlocksTotal ?: 0
+                    val rescanProcessed = data.result.rescanBlocksProcessed ?: 0
+                    val rescanDecimal = if (rescanTotal > 0) {
+                        (rescanProcessed.toFloat() / rescanTotal.toFloat()).coerceIn(0f, 1f)
+                    } else {
+                        null
+                    }
                     _uiState.update {
                         it.copy(
                             blockHeight = NumberFormat.getNumberInstance().format(data.result.height),
@@ -76,6 +83,11 @@ class NodeViewModel(
                             validatedBLocks = data.result.validated,
                             ibd = data.result.ibd,
                             rescanInProgress = data.result.rescanInProgress,
+                            rescanProgressDecimal = rescanDecimal,
+                            rescanProgressPercentage = rescanDecimal
+                                ?.toSyncPercentageString() ?: "0.00",
+                            rescanBlocksProcessed = rescanProcessed,
+                            rescanBlocksTotal = rescanTotal,
                             filterHeightRaw = filterHeight ?: 0,
                             filterSyncDecimal = filterDecimal,
                             filterSyncPercentage = filterDecimal

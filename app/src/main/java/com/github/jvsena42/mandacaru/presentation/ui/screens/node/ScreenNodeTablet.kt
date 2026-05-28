@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.github.jvsena42.mandacaru.R
+import java.text.NumberFormat
 
 @Composable
 internal fun TabletNodeDashboard(
@@ -54,6 +56,7 @@ internal fun TabletNodeDashboard(
     isHeaderSync: Boolean,
     isFilterSync: Boolean,
     isStalled: Boolean,
+    isWalletScanning: Boolean,
     syncTitleRes: Int,
     onPingClick: () -> Unit,
     onRequestDisconnect: (String) -> Unit,
@@ -82,6 +85,7 @@ internal fun TabletNodeDashboard(
             isHeaderSync = isHeaderSync,
             isFilterSync = isFilterSync,
             isStalled = isStalled,
+            isWalletScanning = isWalletScanning,
             syncTitleRes = syncTitleRes,
         )
 
@@ -141,6 +145,7 @@ private fun HeroStatusBand(
     isHeaderSync: Boolean,
     isFilterSync: Boolean,
     isStalled: Boolean,
+    isWalletScanning: Boolean,
     syncTitleRes: Int,
 ) {
     val rawDecimal: Float? = when {
@@ -148,6 +153,9 @@ private fun HeroStatusBand(
         isHeaderSync && uiState.headerSyncDecimal != null -> uiState.headerSyncDecimal
         isHeaderSync -> null
         isFilterSync && uiState.filterSyncDecimal != null -> uiState.filterSyncDecimal
+        // Real rescan progress when the daemon reports a block total, otherwise
+        // an indeterminate ring rather than a misleading 100%.
+        isWalletScanning -> uiState.rescanProgressDecimal
         else -> uiState.syncDecimal
     }
     val animatedDecimal by animateFloatAsState(
@@ -161,6 +169,9 @@ private fun HeroStatusBand(
         isHeaderSync && uiState.headerSyncDecimal != null -> "${uiState.headerSyncPercentage}%"
         isHeaderSync -> "—"
         isFilterSync && uiState.filterSyncDecimal != null -> "${uiState.filterSyncPercentage}%"
+        isWalletScanning && uiState.rescanProgressDecimal != null ->
+            "${uiState.rescanProgressPercentage}%"
+        isWalletScanning -> "—"
         else -> "${uiState.syncPercentage}%"
     }
 
@@ -198,11 +209,22 @@ private fun HeroStatusBand(
             horizontalArrangement = Arrangement.spacedBy(32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val numberFormat = remember { NumberFormat.getNumberInstance() }
+            val scanSubtitle = if (isWalletScanning && uiState.rescanBlocksTotal > 0) {
+                stringResource(
+                    R.string.scanning_wallet_blocks,
+                    numberFormat.format(uiState.rescanBlocksProcessed),
+                    numberFormat.format(uiState.rescanBlocksTotal),
+                )
+            } else {
+                null
+            }
             BigSyncRing(
                 progress = animatedDecimal,
                 indeterminate = rawDecimal == null,
                 isStalled = isStalled,
                 percentageText = percentageText,
+                subtitle = scanSubtitle,
                 allDone = allDone,
             )
             Column(
@@ -267,6 +289,7 @@ private fun BigSyncRing(
     indeterminate: Boolean,
     isStalled: Boolean,
     percentageText: String,
+    subtitle: String?,
     allDone: Boolean,
 ) {
     val ringColor = when {
@@ -319,6 +342,13 @@ private fun BigSyncRing(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    )
+                }
             }
         }
     }
