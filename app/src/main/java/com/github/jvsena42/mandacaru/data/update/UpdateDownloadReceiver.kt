@@ -5,13 +5,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 
 /**
- * Receives DownloadManager completion events and
- * updates persistent update state so UI can show:
- * - "Install" button
- * - "Download completed" state
+ * Final link in the update pipeline:
+ *
+ * DownloadManager → Receiver → Registry → UI (Install ready)
  */
 class UpdateDownloadReceiver : BroadcastReceiver() {
 
@@ -23,21 +21,16 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-        val cursor = dm.query(
-            DownloadManager.Query().setFilterById(downloadId)
-        ) ?: return
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = dm.query(query) ?: return
 
         cursor.use {
-
             if (!it.moveToFirst()) return
 
             val statusIndex = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
             val status = it.getInt(statusIndex)
 
-            if (status != DownloadManager.STATUS_SUCCESSFUL) {
-                Log.w("UpdateReceiver", "Download failed or incomplete: $downloadId")
-                return
-            }
+            if (status != DownloadManager.STATUS_SUCCESSFUL) return
 
             val uriIndex = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
             val uriString = it.getString(uriIndex)
@@ -46,23 +39,30 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
 
             val uri = Uri.parse(uriString)
 
-            // Recover version from registry context (prevents "unknown version" bugs)
-            val prefs = PreferencesDataSource(context)
+            val version = resolveVersion(context, downloadId)
 
-            val version = prefs.getString(
-                "update_active_version",
-                "unknown"
+            // 🔥 CRITICAL: mark install-ready state
+            // This is what your UI will react to
+            val registry = UpdateDownloadRegistry(
+                PreferencesDataSource(context)
             )
 
-            // Mark registry state as completed + install-ready
-            val registry = UpdateDownloadRegistry(prefs)
-
-            registry.markCompleted(
-                version = version,
-                downloadId = downloadId
-            )
-
-            Log.d("UpdateReceiver", "Update ready to install: $version ($uri)")
+            kotlinx.coroutines.runBlocking {
+                registry.markCompleted(
+                    version = version,
+                    uri = uri.toString()
+                )
+            }
         }
+    }
+
+    /**
+     * Best-effort version resolution.
+     * If unknown, UI still works (URI is enough for install).
+     */
+    private fun resolveVersion(context: Context, downloadId: Long): String {
+        val prefs = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
+        return prefs.getString("update_active_version", null)
+            ?: "unknown"
     }
 }
