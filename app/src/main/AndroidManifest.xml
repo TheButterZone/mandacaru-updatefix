@@ -27,6 +27,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Mandacaru"
         tools:targetApi="31">
+
         <activity
             android:name=".presentation.ui.screens.main.MainActivity"
             android:exported="true"
@@ -39,6 +40,7 @@
             </intent-filter>
         </activity>
 
+        <!-- FileProvider (existing) -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -49,12 +51,22 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
+        <!-- ✅ NEW: Download completion receiver for update system -->
+        <receiver
+            android:name=".data.update.UpdateDownloadReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".presentation.service.FlorestaService"
             android:enabled="true"
             android:permission="android.permission.FOREGROUND_SERVICE_DATA_SYNC"
             android:foregroundServiceType="dataSync"
             android:exported="true" />
+
     </application>
 
 </manifest>
