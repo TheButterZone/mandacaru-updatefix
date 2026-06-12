@@ -125,12 +125,14 @@ fun ScreenSettings(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val shareLogsTitle = stringResource(R.string.share_logs)
+    
     ScreenSettings(
         uiState = uiState,
         onAction = viewModel::onAction,
         modifier = modifier,
         bottomContentPadding = bottomContentPadding,
     )
+    
     LaunchedEffect(viewModel.eventFlow) {
         viewModel.eventFlow.collect { event ->
             when (event) {
@@ -156,6 +158,7 @@ fun ScreenSettings(
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(installIntent)
+                }
             }
         }
     }
