@@ -18,17 +18,11 @@ import com.github.jvsena42.mandacaru.domain.scan.DescriptorQrScanner
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorScanState
 import com.github.jvsena42.mandacaru.domain.update.UpdateStateResolver
 import com.github.jvsena42.mandacaru.presentation.utils.*
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.File
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 import com.florestad.Network as FlorestaNetwork
 
 class SettingsViewModel(
@@ -88,7 +82,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER (FIXED)
+    // UPDATE OBSERVER
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -117,36 +111,50 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE DOWNLOAD (FIXED ROOT CAUSE OF DUPLICATES)
+    // UPDATE DOWNLOAD WITH LOCK + PERSISTENCE
     // ----------------------------
     private fun getUpdate() {
         val status = _uiState.value.updateStatus
         val url = status.apkDownloadUrl ?: return
+        val version = status.latestVersion
 
         viewModelScope.launch {
 
-            // 🔒 HARD LOCK: prevent duplicate downloads per version
-            if (updateRegistry.isSameVersionAlreadyHandled(status.latestVersion)) {
-                Log.d("SettingsViewModel", "Update already handled: ${status.latestVersion}")
+            // ❌ prevent re-downloading the same version
+            if (updateRegistry.isDownloaded(version)) {
+                Log.d("SettingsViewModel", "Update already downloaded: $version")
+                _uiState.update { it.copy(snackBarMessage = "Update already downloaded") }
+                return@launch
+            }
+
+            // ❌ prevent duplicate concurrent downloads
+            if (updateRegistry.isDownloading(version)) {
+                Log.d("SettingsViewModel", "Update already downloading: $version")
+                _uiState.update { it.copy(snackBarMessage = "Download already in progress") }
                 return@launch
             }
 
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
             val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("Mandacaru update ${status.latestVersion}")
-                .setNotificationVisibility(
-                    DownloadManager.Request.VISIBILITY_VISIBLE
+                .setTitle("Mandacaru update $version")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(false)
+                .setDestinationInExternalFilesDir(
+                    context,
+                    "updates",
+                    "mandacaru-$version.apk"
                 )
 
             val downloadId = dm.enqueue(request)
 
             updateDownloadState = UpdateDownloadState(
-                version = status.latestVersion,
+                version = version,
                 downloadId = downloadId
             )
 
-            updateRegistry.markVersion(status.latestVersion, downloadId)
+            updateRegistry.markDownloading(version, downloadId)
         }
     }
 
@@ -159,7 +167,6 @@ class SettingsViewModel(
     // ----------------------------
     // ALL OTHER LOGIC (UNCHANGED)
     // ----------------------------
-
     private fun observeRescanState() { /* unchanged */ }
 
     fun onAction(action: SettingsAction) { /* unchanged */ }
