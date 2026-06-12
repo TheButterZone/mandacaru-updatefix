@@ -33,11 +33,34 @@ class UpdateDownloadRegistry(context: Context) {
     // MARK DOWNLOAD COMPLETED
     // ----------------------------
     fun markCompleted(downloadId: Long, uri: Uri) {
+        val activeId = prefs.getLong(KEY_ACTIVE_DOWNLOAD_ID, -1L)
+        // Verify the completed ID matches the current active download ID
+        if (activeId == -1L || activeId != downloadId) return
+
         val version = prefs.getString(KEY_ACTIVE_VERSION, null) ?: return
+        
         prefs.edit()
             .remove(KEY_ACTIVE_DOWNLOAD_ID)
             .remove(KEY_ACTIVE_VERSION)
             .putString("$KEY_COMPLETED_PREFIX$version", uri.toString())
+            .apply()
+    }
+
+    // ----------------------------
+    // MARK DOWNLOAD FAILED / CANCELLED
+    // ----------------------------
+    /** Clears the active download tracking state if a download fails or is cancelled */
+    fun clearActiveDownload() {
+        prefs.edit()
+            .remove(KEY_ACTIVE_DOWNLOAD_ID)
+            .remove(KEY_ACTIVE_VERSION)
+            .apply()
+    }
+
+    /** Specific cleanup if a version is explicitly invalidated or deleted */
+    fun clearCompletedVersion(version: String) {
+        prefs.edit()
+            .remove("$KEY_COMPLETED_PREFIX$version")
             .apply()
     }
 
@@ -64,7 +87,8 @@ class UpdateDownloadRegistry(context: Context) {
 
     /** Is a download in progress for this version? */
     fun isDownloading(version: String): Boolean {
-        return prefs.getString(KEY_ACTIVE_VERSION, null) == version &&
-               prefs.contains(KEY_ACTIVE_DOWNLOAD_ID)
+        val activeVersion = prefs.getString(KEY_ACTIVE_VERSION, null)
+        val hasActiveId = prefs.contains(KEY_ACTIVE_DOWNLOAD_ID)
+        return activeVersion == version && hasActiveId
     }
 }
