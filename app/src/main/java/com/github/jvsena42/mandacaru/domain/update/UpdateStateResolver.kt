@@ -24,7 +24,7 @@ class UpdateStateResolver(
 
         // No update available at all
         if (!status.isUpdateAvailable) {
-            return UpdateState.NoUpdate
+            return UpdateState.Idle
         }
 
         // Already fully downloaded (persistent state)
