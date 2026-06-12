@@ -12,9 +12,9 @@ import com.github.jvsena42.mandacaru.data.FlorestaRpc
 import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
 import com.github.jvsena42.mandacaru.data.update.UpdateDownloadRegistry
-import com.github.jvsena42.mandacaru.data.update.UpdateDownloadState
 import com.github.jvsena42.mandacaru.domain.model.florestaRPC.AddNodeCommand
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorQrScanner
+import com.github.jvsena42.mandacaru.domain.scan.DescriptorScanState
 import com.github.jvsena42.mandacaru.domain.update.UpdateStateResolver
 import com.github.jvsena42.mandacaru.presentation.utils.*
 import kotlinx.coroutines.Job
@@ -37,10 +37,9 @@ class SettingsViewModel(
     val uiState = _uiState.asStateFlow()
 
     // ----------------------------
-    // UPDATE SYSTEM (SIMPLIFIED)
+    // UPDATE SYSTEM
     // ----------------------------
     private val updateResolver = UpdateStateResolver()
-    private var updateDownloadState: UpdateDownloadState? = null
 
     private var nodeAddressValidationJob: Job? = null
     private var descriptorScanErrorJob: Job? = null
@@ -81,7 +80,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER (CLEAN)
+    // UPDATE OBSERVER (NOW PURE STATE)
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -94,14 +93,15 @@ class SettingsViewModel(
 
                 val resolved = updateResolver.resolve(
                     status = status,
-                    download = updateDownloadState,
+                    download = updateRegistry.getActiveDownloadState(),
                     downloadUri = null
                 )
 
                 _uiState.update {
                     it.copy(
                         updateStatus = status,
-                        updateUiState = resolved
+                        updateUiState = resolved,
+                        isUpdateDownloading = updateRegistry.getActiveDownloadId() != null
                     )
                 }
             }
@@ -109,7 +109,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE DOWNLOAD (UNCHANGED LOGIC)
+    // UPDATE DOWNLOAD (NO VIEWMODEL STATE)
     // ----------------------------
     private fun getUpdate() {
         val status = _uiState.value.updateStatus
@@ -119,16 +119,14 @@ class SettingsViewModel(
         viewModelScope.launch {
 
             if (updateRegistry.isDownloaded(version)) {
-                _uiState.update {
-                    it.copy(snackBarMessage = "Update already downloaded")
-                }
+                Log.d("SettingsViewModel", "Update already downloaded: $version")
+                _uiState.update { it.copy(snackBarMessage = "Update already downloaded") }
                 return@launch
             }
 
             if (updateRegistry.isDownloading(version)) {
-                _uiState.update {
-                    it.copy(snackBarMessage = "Download already in progress")
-                }
+                Log.d("SettingsViewModel", "Update already downloading: $version")
+                _uiState.update { it.copy(snackBarMessage = "Download already in progress") }
                 return@launch
             }
 
@@ -136,9 +134,7 @@ class SettingsViewModel(
 
             val request = DownloadManager.Request(Uri.parse(url))
                 .setTitle("Mandacaru update $version")
-                .setNotificationVisibility(
-                    DownloadManager.Request.VISIBILITY_VISIBLE
-                )
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(false)
                 .setDestinationInExternalFilesDir(
@@ -148,11 +144,6 @@ class SettingsViewModel(
                 )
 
             val downloadId = dm.enqueue(request)
-
-            updateDownloadState = UpdateDownloadState(
-                version = version,
-                downloadId = downloadId
-            )
 
             updateRegistry.markDownloading(version, downloadId)
         }
@@ -168,26 +159,47 @@ class SettingsViewModel(
     // ALL OTHER LOGIC (UNCHANGED)
     // ----------------------------
     private fun observeRescanState() { /* unchanged */ }
+
     fun onAction(action: SettingsAction) { /* unchanged */ }
+
     private fun handleAdvancedFeaturesToggled(action: SettingsAction.OnToggleAdvancedFeatures) { /* unchanged */ }
+
     private fun toggleDataUsageExpanded() { /* unchanged */ }
+
     private fun handleMobileDataToggled(action: SettingsAction.OnToggleMobileData) { /* unchanged */ }
+
     private fun toggleAboutExpanded() { /* unchanged */ }
+
     private fun applyBirthdayYearAndRestart() { /* unchanged */ }
+
     fun handleNetworkSelected(action: SettingsAction.OnNetworkSelected) { /* unchanged */ }
+
     private suspend fun updateElectrumAddress() { /* unchanged */ }
+
     private fun getDescriptors() { /* unchanged */ }
+
     private fun debouncedValidateNodeAddress() { /* unchanged */ }
+
     private fun connectNode() { /* unchanged */ }
+
     private fun updateDescriptor() { /* unchanged */ }
+
     private fun loadDescriptorString(input: String, onSuccess: () -> Unit = {}) { /* unchanged */ }
+
     private fun openDescriptorScanner() { /* unchanged */ }
+
     private fun closeDescriptorScanner() { /* unchanged */ }
+
     private fun handleDescriptorFrame(raw: String) { /* unchanged */ }
+
     private fun onDescriptorScanned(descriptor: String) { /* unchanged */ }
+
     private fun confirmScannedDescriptor() { /* unchanged */ }
+
     private fun showDescriptorScanError(reason: String) { /* unchanged */ }
+
     private fun rescan() { /* unchanged */ }
+
     private fun exportLogs() { /* unchanged */ }
 
     override fun onCleared() {
