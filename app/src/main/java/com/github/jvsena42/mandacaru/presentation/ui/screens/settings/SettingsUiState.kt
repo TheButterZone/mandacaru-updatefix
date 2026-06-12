@@ -16,7 +16,7 @@ data class PendingDescriptor(
 data class SettingsUiState(
 
     // -------------------------
-    // CORE STATE (UNCHANGED)
+    // EXISTING STATE
     // -------------------------
 
     val descriptorText: String = "",
@@ -60,13 +60,16 @@ data class SettingsUiState(
     val isDeveloperToolsExpanded: Boolean = false,
 
     // -------------------------
-    // UPDATE SYSTEM (CLEANED)
+    // UPDATE SYSTEM (SIMPLIFIED)
     // -------------------------
 
     val updateStatus: UpdateStatus = UpdateStatus(),
 
     /**
-     * SINGLE SOURCE OF TRUTH FOR UI STATE
+     * Single source of truth for UI:
+     * - Available
+     * - Downloading
+     * - ReadyToInstall
      */
-    val updateUiState: UpdateState = UpdateState.NoUpdate
+    val updateUiState: UpdateState = UpdateState.Available
 )
