@@ -7,21 +7,24 @@ import android.content.Intent
 import android.net.Uri
 
 /**
- * Marks completed downloads so UI can resolve "Ready to Install"
+ * ONLY responsibility:
+ * - Detect completed DownloadManager downloads
+ * - Persist "ready-to-install" APK URI
+ *
+ * No registry, no version tracking, no duplication logic.
  */
 class UpdateDownloadReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
 
-        val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+        val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
         if (downloadId == -1L) return
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-        val cursor = dm.query(
-            DownloadManager.Query().setFilterById(downloadId)
-        ) ?: return
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = dm.query(query) ?: return
 
         cursor.use {
             if (!it.moveToFirst()) return
@@ -38,27 +41,11 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
 
             val uri = Uri.parse(uriString)
 
-            // Persist minimal completion marker (optional future use)
-            UpdateDownloadStateStoreLegacy.save(context, downloadId, uri)
+            UpdateDownloadStateStore.saveCompleted(
+                context = context,
+                downloadId = downloadId,
+                uri = uri
+            )
         }
-    }
-}
-
-/**
- * TEMP internal helper to avoid reintroducing a full registry system.
- * We keep persistence minimal and isolated.
- */
-private object UpdateDownloadStateStoreLegacy {
-
-    private const val PREFS = "update_state"
-    private const val KEY_ID = "download_id"
-    private const val KEY_URI = "apk_uri"
-
-    fun save(context: Context, id: Long, uri: Uri) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs.edit()
-            .putLong(KEY_ID, id)
-            .putString(KEY_URI, uri.toString())
-            .apply()
     }
 }
