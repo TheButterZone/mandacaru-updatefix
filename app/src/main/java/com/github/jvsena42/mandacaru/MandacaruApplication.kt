@@ -82,6 +82,7 @@ val presentationModule = module {
             appUpdateRepository = get(),
             descriptorScanner = get(),
             context = androidContext(),
+            updateRegistry = get(),
         )
     }
     viewModel { MainViewModel(appUpdateRepository = get()) }
