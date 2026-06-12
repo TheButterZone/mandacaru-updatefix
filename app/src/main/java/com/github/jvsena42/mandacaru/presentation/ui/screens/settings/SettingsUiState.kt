@@ -2,7 +2,6 @@ package com.github.jvsena42.mandacaru.presentation.ui.screens.settings
 
 import androidx.compose.runtime.Stable
 import com.florestad.Network
-import com.github.jvsena42.mandacaru.domain.model.UpdateStatus
 import com.github.jvsena42.mandacaru.domain.update.UpdateState
 import com.github.jvsena42.mandacaru.presentation.utils.DescriptorUtils
 import com.github.jvsena42.mandacaru.presentation.utils.WalletBirthday
@@ -16,8 +15,9 @@ data class PendingDescriptor(
 data class SettingsUiState(
 
     // -------------------------
-    // CORE APP STATE
+    // EXISTING STATE (UNCHANGED)
     // -------------------------
+
     val descriptorText: String = "",
     val isDescriptorScanSheetOpen: Boolean = false,
     val descriptorScanProgress: Float = 0f,
@@ -59,19 +59,15 @@ data class SettingsUiState(
     val isDeveloperToolsExpanded: Boolean = false,
 
     // -------------------------
-    // UPDATE SYSTEM (SIMPLIFIED)
+    // UPDATE SYSTEM (CLEANED)
     // -------------------------
 
     /**
-     * Remote update info from GitHub
-     */
-    val updateStatus: UpdateStatus = UpdateStatus(),
-
-    /**
-     * Local download/install state (ONLY 3 states needed downstream):
-     * - UpToDate
-     * - Downloading
-     * - ReadyToInstall
+     * Single source of truth for update UI.
+     *
+     * Replaces:
+     * - updateStatus
+     * - isUpdateDownloading
      */
     val updateUiState: UpdateState = UpdateState.UpToDate,
 )
