@@ -60,7 +60,7 @@ data class SettingsUiState(
     val isDeveloperToolsExpanded: Boolean = false,
 
     // -------------------------
-    // UPDATE SYSTEM (SIMPLIFIED)
+    // UPDATE SYSTEM (FINAL)
     // -------------------------
 
     val updateStatus: UpdateStatus = UpdateStatus(),
@@ -71,5 +71,10 @@ data class SettingsUiState(
      * - Downloading
      * - ReadyToInstall
      */
-    val updateUiState: UpdateState = UpdateState.Available
+    val updateUiState: UpdateState = UpdateState.Available,
+
+    /**
+     * Helper for UI to show progress bar / downloading state
+     */
+    val isUpdateDownloading: Boolean = false
 )
