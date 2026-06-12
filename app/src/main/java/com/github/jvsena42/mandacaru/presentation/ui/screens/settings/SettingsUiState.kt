@@ -2,6 +2,7 @@ package com.github.jvsena42.mandacaru.presentation.ui.screens.settings
 
 import androidx.compose.runtime.Stable
 import com.florestad.Network
+import com.github.jvsena42.mandacaru.domain.model.UpdateStatus
 import com.github.jvsena42.mandacaru.domain.update.UpdateState
 import com.github.jvsena42.mandacaru.presentation.utils.DescriptorUtils
 import com.github.jvsena42.mandacaru.presentation.utils.WalletBirthday
@@ -15,7 +16,7 @@ data class PendingDescriptor(
 data class SettingsUiState(
 
     // -------------------------
-    // EXISTING STATE (UNCHANGED)
+    // CORE STATE (UNCHANGED)
     // -------------------------
 
     val descriptorText: String = "",
@@ -62,12 +63,10 @@ data class SettingsUiState(
     // UPDATE SYSTEM (CLEANED)
     // -------------------------
 
+    val updateStatus: UpdateStatus = UpdateStatus(),
+
     /**
-     * Single source of truth for update UI.
-     *
-     * Replaces:
-     * - updateStatus
-     * - isUpdateDownloading
+     * SINGLE SOURCE OF TRUTH FOR UI STATE
      */
-    val updateUiState: UpdateState = UpdateState.UpToDate,
+    val updateUiState: UpdateState = UpdateState.NoUpdate
 )
