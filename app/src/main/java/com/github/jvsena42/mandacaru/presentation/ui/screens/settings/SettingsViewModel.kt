@@ -76,7 +76,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER (CLEAN STATE MACHINE)
+    // UPDATE OBSERVER (FINAL CLEAN STATE MACHINE)
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -99,7 +99,7 @@ class SettingsViewModel(
                     )
                 }
 
-                // Auto-install trigger
+                // Auto-install trigger (UI-driven side effect)
                 if (resolved is UpdateState.ReadyToInstall) {
                     viewModelScope.sendEvent(
                         SettingsEvents.OpenInstallPrompt(resolved.uri)
