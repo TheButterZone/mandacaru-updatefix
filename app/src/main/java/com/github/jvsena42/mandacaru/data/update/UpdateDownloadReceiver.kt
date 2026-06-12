@@ -7,24 +7,27 @@ import android.content.Intent
 import android.net.Uri
 
 /**
- * ONLY responsibility:
- * - Detect completed DownloadManager downloads
- * - Persist "ready-to-install" APK URI
- *
- * No registry, no version tracking, no duplication logic.
+ * Minimal receiver:
+ * - verifies download success
+ * - no persistence layer
  */
 class UpdateDownloadReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
 
-        val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+        val downloadId = intent.getLongExtra(
+            DownloadManager.EXTRA_DOWNLOAD_ID,
+            -1
+        )
+
         if (downloadId == -1L) return
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-        val query = DownloadManager.Query().setFilterById(downloadId)
-        val cursor = dm.query(query) ?: return
+        val cursor = dm.query(
+            DownloadManager.Query().setFilterById(downloadId)
+        ) ?: return
 
         cursor.use {
             if (!it.moveToFirst()) return
@@ -34,18 +37,8 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
 
             if (status != DownloadManager.STATUS_SUCCESSFUL) return
 
-            val uriIndex = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-            val uriString = it.getString(uriIndex)
-
-            if (uriString.isNullOrEmpty()) return
-
-            val uri = Uri.parse(uriString)
-
-            UpdateDownloadStateStore.saveCompleted(
-                context = context,
-                downloadId = downloadId,
-                uri = uri
-            )
+            // No persistence.
+            // UI will detect readiness via DownloadManager query.
         }
     }
 }
