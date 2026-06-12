@@ -3,19 +3,15 @@ package com.github.jvsena42.mandacaru.presentation.ui.screens.settings
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.jvsena42.mandacaru.data.AppUpdateRepository
 import com.github.jvsena42.mandacaru.data.FlorestaRpc
 import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
-import com.github.jvsena42.mandacaru.data.update.UpdateDownloadRegistry
-import com.github.jvsena42.mandacaru.domain.model.florestaRPC.AddNodeCommand
+import com.github.jvsena42.mandacaru.data.update.UpdateDownloadState
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorQrScanner
-import com.github.jvsena42.mandacaru.domain.scan.DescriptorScanState
 import com.github.jvsena42.mandacaru.domain.update.UpdateState
 import com.github.jvsena42.mandacaru.domain.update.UpdateStateResolver
 import com.github.jvsena42.mandacaru.presentation.utils.*
@@ -31,14 +27,15 @@ class SettingsViewModel(
     private val preferencesDataSource: PreferencesDataSource,
     private val appUpdateRepository: AppUpdateRepository,
     private val descriptorScanner: DescriptorQrScanner,
-    private val updateRegistry: UpdateDownloadRegistry,
     @field:SuppressLint("StaticFieldLeak") private val context: Context,
 ) : ViewModel(), EventFlow<SettingsEvents> by EventFlowImpl() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val updateResolver = UpdateStateResolver()
+    private val updateResolver = UpdateStateResolver(context)
+
+    private var updateDownloadState: UpdateDownloadState? = null
 
     private var nodeAddressValidationJob: Job? = null
     private var descriptorScanErrorJob: Job? = null
@@ -79,7 +76,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER (FINAL STATE MACHINE)
+    // UPDATE OBSERVER (CLEAN STATE MACHINE)
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -92,19 +89,17 @@ class SettingsViewModel(
 
                 val resolved = updateResolver.resolve(
                     status = status,
-                    download = updateRegistry.getActiveDownloadState(),
-                    downloadUri = updateRegistry.getCompletedApkUri()
+                    download = updateDownloadState
                 )
 
                 _uiState.update {
                     it.copy(
                         updateStatus = status,
-                        updateUiState = resolved,
-                        isUpdateDownloading = updateRegistry.getActiveDownloadId() != null
+                        updateUiState = resolved
                     )
                 }
 
-                // ✨ POLISH: auto trigger install prompt
+                // Auto-install trigger
                 if (resolved is UpdateState.ReadyToInstall) {
                     viewModelScope.sendEvent(
                         SettingsEvents.OpenInstallPrompt(resolved.uri)
@@ -115,7 +110,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE DOWNLOAD (NO DUPLICATES + PERSISTENCE)
+    // UPDATE DOWNLOAD (SINGLE SOURCE OF TRUTH)
     // ----------------------------
     private fun getUpdate() {
         val status = _uiState.value.updateStatus
@@ -123,16 +118,6 @@ class SettingsViewModel(
         val version = status.latestVersion
 
         viewModelScope.launch {
-
-            if (updateRegistry.isDownloaded(version)) {
-                _uiState.update { it.copy(snackBarMessage = "Update already downloaded") }
-                return@launch
-            }
-
-            if (updateRegistry.isDownloading(version)) {
-                _uiState.update { it.copy(snackBarMessage = "Download already in progress") }
-                return@launch
-            }
 
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
@@ -149,7 +134,10 @@ class SettingsViewModel(
 
             val downloadId = dm.enqueue(request)
 
-            updateRegistry.markDownloading(version, downloadId)
+            updateDownloadState = UpdateDownloadState(
+                version = version,
+                downloadId = downloadId
+            )
         }
     }
 
