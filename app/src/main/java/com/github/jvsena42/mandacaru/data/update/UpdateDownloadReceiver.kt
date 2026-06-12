@@ -16,30 +16,42 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-        val query = DownloadManager.Query().setFilterById(downloadId)
-        val cursor = dm.query(query) ?: return
+        val cursor = dm.query(
+            DownloadManager.Query().setFilterById(downloadId)
+        ) ?: return
 
         cursor.use {
             if (!it.moveToFirst()) return
 
-            val statusIndex = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
-            val status = it.getInt(statusIndex)
+            val status = it.getInt(
+                it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+            )
 
             if (status != DownloadManager.STATUS_SUCCESSFUL) return
 
-            val uriIndex = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-            val uriString = it.getString(uriIndex)
-
-            if (uriString.isNullOrEmpty()) return
+            val uriString = it.getString(
+                it.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)
+            )
 
             val uri = Uri.parse(uriString)
 
-            // Save completion marker for UI
+            /**
+             * Mark as completed in persistent store
+             */
             UpdateDownloadStateStore.saveCompleted(
                 context = context,
                 downloadId = downloadId,
                 uri = uri
             )
+
+            /**
+             * IMPORTANT: prevent future duplicate downloads
+             * (this closes the loop with UpdateDownloadRegistry)
+             */
+            val prefs = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putLong("downloadId", downloadId)
+                .apply()
         }
     }
 }
