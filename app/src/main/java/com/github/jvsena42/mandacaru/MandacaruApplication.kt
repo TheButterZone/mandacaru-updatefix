@@ -14,7 +14,7 @@ import com.github.jvsena42.mandacaru.data.floresta.FlorestaDaemonImpl
 import com.github.jvsena42.mandacaru.data.floresta.FlorestaRpcImpl
 import com.github.jvsena42.mandacaru.data.network.NetworkPolicy
 import com.github.jvsena42.mandacaru.data.network.NetworkPolicyManager
-import com.github.jvsena42.mandacaru.data.update.AppUpdateRepositoryImpl
+import com.github.jvsena42.mandacaru.data.AppUpdateRepositoryImpl
 import com.github.jvsena42.mandacaru.domain.floresta.FlorestaDaemon
 import com.github.jvsena42.mandacaru.domain.floresta.UtreexoBridgeAutoConnect
 import com.github.jvsena42.mandacaru.domain.floresta.UtreexoSnapshotService
