@@ -153,14 +153,15 @@ fun ScreenSettings(
                 }
                 is SettingsEvents.OpenReleasePage -> uriHandler.openUri(event.url)
                 is SettingsEvents.OpenDeveloperLogs -> currentOnOpenLogs()
-                is SettingsEvents.OpenInstallPrompt -> {
-                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                
+                is OpenInstallPrompt -> { 
+                   val installIntent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(event.uri, "application/vnd.android.package-archive")
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(installIntent)
-                }
+                   }
+                   context.startActivity(installIntent)
+            }
             }
         }
     }
