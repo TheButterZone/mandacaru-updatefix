@@ -10,6 +10,7 @@ import com.github.jvsena42.mandacaru.data.AppUpdateRepository
 import com.github.jvsena42.mandacaru.data.FlorestaRpc
 import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
+import com.github.jvsena42.mandacaru.data.update.UpdateDownloadRegistry
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorQrScanner
 import com.github.jvsena42.mandacaru.domain.update.UpdateState
 import com.github.jvsena42.mandacaru.domain.update.UpdateStateResolver
@@ -26,6 +27,7 @@ class SettingsViewModel(
     private val preferencesDataSource: PreferencesDataSource,
     private val appUpdateRepository: AppUpdateRepository,
     private val descriptorScanner: DescriptorQrScanner,
+    private val updateRegistry: UpdateDownloadRegistry,
     @field:SuppressLint("StaticFieldLeak") private val context: Context,
 ) : ViewModel(), EventFlow<SettingsEvents> by EventFlowImpl() {
 
@@ -33,9 +35,6 @@ class SettingsViewModel(
     val uiState = _uiState.asStateFlow()
 
     private val updateResolver = UpdateStateResolver(context)
-
-    // ONLY in-memory tracking (no persistence)
-    private var activeDownloadId: Long? = null
 
     private var nodeAddressValidationJob: Job? = null
     private var descriptorScanErrorJob: Job? = null
@@ -76,7 +75,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER (CLEAN STATE MACHINE)
+    // UPDATE OBSERVER (FINAL POLISH)
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -89,13 +88,14 @@ class SettingsViewModel(
 
                 val resolved = updateResolver.resolve(
                     status = status,
-                    downloadId = activeDownloadId
+                    downloadId = updateRegistry.getActiveDownloadId()
                 )
 
                 _uiState.update {
                     it.copy(
                         updateStatus = status,
-                        updateUiState = resolved
+                        updateUiState = resolved,
+                        isUpdateDownloading = resolved is UpdateState.Downloading
                     )
                 }
 
@@ -109,14 +109,24 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE DOWNLOAD (NO PERSISTENCE)
+    // UPDATE DOWNLOAD (PERSISTENT REGISTRY)
     // ----------------------------
-    private fun getUpdate() {
+    fun getUpdate() {
         val status = _uiState.value.updateStatus
         val url = status.apkDownloadUrl ?: return
         val version = status.latestVersion
 
         viewModelScope.launch {
+
+            if (updateRegistry.isDownloaded(version)) {
+                _uiState.update { it.copy(snackBarMessage = "Update already downloaded") }
+                return@launch
+            }
+
+            if (updateRegistry.isDownloading(version)) {
+                _uiState.update { it.copy(snackBarMessage = "Download already in progress") }
+                return@launch
+            }
 
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
@@ -133,10 +143,7 @@ class SettingsViewModel(
 
             val downloadId = dm.enqueue(request)
 
-            updateDownloadState = UpdateDownloadState(
-                version = version,
-                downloadId = downloadId
-            )
+            updateRegistry.markDownloading(version, downloadId)
         }
     }
 
