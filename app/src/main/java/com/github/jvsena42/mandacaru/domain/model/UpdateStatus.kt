@@ -1,44 +1,42 @@
 package com.github.jvsena42.mandacaru.domain.model
 
 /**
- * Represents GitHub-driven update metadata only.
+ * Pure GitHub-derived update metadata.
  *
  * IMPORTANT:
- * This model does NOT represent download state anymore.
- * Download lifecycle is handled by DownloadManager layer.
+ * This model MUST NOT contain download lifecycle state.
+ * Downloading / installing is handled by DownloadManager layer.
  */
 data class UpdateStatus(
     val isUpdateAvailable: Boolean = false,
 
     /**
-     * Latest semantic version from GitHub (e.g. "1.2.3")
+     * Latest version string from GitHub (e.g. "1.2.3")
      */
     val latestVersion: String = "",
 
     /**
-     * Direct APK asset URL from GitHub release.
-     * May be null if no APK asset is present.
+     * Direct APK asset URL (nullable if no APK exists in release)
      */
     val apkDownloadUrl: String? = null,
 
     /**
-     * Optional browser fallback for release page.
+     * Fallback browser URL for release page
      */
     val releasePageUrl: String = RELEASES_URL,
 
     /**
-     * Whether a background check is currently running.
+     * Whether update check is currently running
      */
     val isChecking: Boolean = false,
 
     /**
-     * Whether the last update check failed.
+     * Whether last update check failed
      */
     val checkFailed: Boolean = false,
 
     /**
-     * Badge visibility is purely a UI concern:
-     * "Is there an unseen update?"
+     * UI badge visibility (unseen update indicator)
      */
     val isBadgeVisible: Boolean = false,
 ) {
