@@ -3,6 +3,7 @@ package com.github.jvsena42.mandacaru.presentation.ui.screens.settings
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -15,6 +16,7 @@ import com.github.jvsena42.mandacaru.data.update.UpdateDownloadRegistry
 import com.github.jvsena42.mandacaru.domain.model.florestaRPC.AddNodeCommand
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorQrScanner
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorScanState
+import com.github.jvsena42.mandacaru.domain.update.UpdateState
 import com.github.jvsena42.mandacaru.domain.update.UpdateStateResolver
 import com.github.jvsena42.mandacaru.presentation.utils.*
 import kotlinx.coroutines.Job
@@ -36,9 +38,6 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
-    // ----------------------------
-    // UPDATE SYSTEM
-    // ----------------------------
     private val updateResolver = UpdateStateResolver()
 
     private var nodeAddressValidationJob: Job? = null
@@ -80,7 +79,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER (NOW PURE STATE)
+    // UPDATE OBSERVER (FINAL STATE MACHINE)
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -94,7 +93,7 @@ class SettingsViewModel(
                 val resolved = updateResolver.resolve(
                     status = status,
                     download = updateRegistry.getActiveDownloadState(),
-                    downloadUri = null
+                    downloadUri = updateRegistry.getCompletedApkUri()
                 )
 
                 _uiState.update {
@@ -104,12 +103,19 @@ class SettingsViewModel(
                         isUpdateDownloading = updateRegistry.getActiveDownloadId() != null
                     )
                 }
+
+                // ✨ POLISH: auto trigger install prompt
+                if (resolved is UpdateState.ReadyToInstall) {
+                    viewModelScope.sendEvent(
+                        SettingsEvents.OpenInstallPrompt(resolved.uri)
+                    )
+                }
             }
         }
     }
 
     // ----------------------------
-    // UPDATE DOWNLOAD (NO VIEWMODEL STATE)
+    // UPDATE DOWNLOAD (NO DUPLICATES + PERSISTENCE)
     // ----------------------------
     private fun getUpdate() {
         val status = _uiState.value.updateStatus
@@ -119,13 +125,11 @@ class SettingsViewModel(
         viewModelScope.launch {
 
             if (updateRegistry.isDownloaded(version)) {
-                Log.d("SettingsViewModel", "Update already downloaded: $version")
                 _uiState.update { it.copy(snackBarMessage = "Update already downloaded") }
                 return@launch
             }
 
             if (updateRegistry.isDownloading(version)) {
-                Log.d("SettingsViewModel", "Update already downloading: $version")
                 _uiState.update { it.copy(snackBarMessage = "Download already in progress") }
                 return@launch
             }
@@ -156,8 +160,9 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // ALL OTHER LOGIC (UNCHANGED)
+    // REMAINING LOGIC (UNCHANGED)
     // ----------------------------
+
     private fun observeRescanState() { /* unchanged */ }
 
     fun onAction(action: SettingsAction) { /* unchanged */ }
