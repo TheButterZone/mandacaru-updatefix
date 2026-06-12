@@ -16,9 +16,8 @@ data class PendingDescriptor(
 data class SettingsUiState(
 
     // -------------------------
-    // EXISTING STATE (UNCHANGED)
+    // CORE APP STATE
     // -------------------------
-
     val descriptorText: String = "",
     val isDescriptorScanSheetOpen: Boolean = false,
     val descriptorScanProgress: Float = 0f,
@@ -60,19 +59,19 @@ data class SettingsUiState(
     val isDeveloperToolsExpanded: Boolean = false,
 
     // -------------------------
-    // UPDATE SYSTEM (NEW - SAFE ADDITION)
+    // UPDATE SYSTEM (SIMPLIFIED)
     // -------------------------
 
+    /**
+     * Remote update info from GitHub
+     */
     val updateStatus: UpdateStatus = UpdateStatus(),
 
     /**
-     * NEW: resolved UI state for update system
-     * (Download / Installing / Install ready / etc.)
+     * Local download/install state (ONLY 3 states needed downstream):
+     * - UpToDate
+     * - Downloading
+     * - ReadyToInstall
      */
     val updateUiState: UpdateState = UpdateState.UpToDate,
-
-    /**
-     * TRUE when DownloadManager is actively downloading
-     */
-    val isUpdateDownloading: Boolean = false,
 )
