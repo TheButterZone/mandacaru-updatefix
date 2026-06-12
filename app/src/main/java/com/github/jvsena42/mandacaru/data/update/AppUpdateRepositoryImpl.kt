@@ -38,22 +38,14 @@ class AppUpdateRepositoryImpl(
 
         if (!force && !isCheckDue()) return@withContext
 
-        _updateStatus.update {
-            it.copy(
-                isChecking = true,
-                checkFailed = false
-            )
-        }
+        _updateStatus.update { it.copy(isChecking = true, checkFailed = false) }
 
         runCatching { fetchLatestRelease() }
-            .onSuccess { release -> applyRelease(release) }
+            .onSuccess { applyRelease(it) }
             .onFailure { error ->
-                Log.w(TAG, "refresh: failed to check for updates", error)
+                Log.w(TAG, "refresh failed", error)
                 _updateStatus.update {
-                    it.copy(
-                        isChecking = false,
-                        checkFailed = true
-                    )
+                    it.copy(isChecking = false, checkFailed = true)
                 }
             }
     }
@@ -67,9 +59,7 @@ class AppUpdateRepositoryImpl(
             latest
         )
 
-        _updateStatus.update {
-            it.copy(isBadgeVisible = false)
-        }
+        _updateStatus.update { it.copy(isBadgeVisible = false) }
     }
 
     private suspend fun emitCachedStatus() {
@@ -88,7 +78,6 @@ class AppUpdateRepositoryImpl(
         val seen = preferencesDataSource.getString(
             PreferenceKeys.UPDATE_SEEN_VERSION,
             ""
-        )
 
         val isUpdate = VersionComparator.isNewer(
             latest,
@@ -100,10 +89,6 @@ class AppUpdateRepositoryImpl(
                 isUpdateAvailable = isUpdate,
                 latestVersion = latest,
                 apkDownloadUrl = apkUrl.ifEmpty { null },
-
-                // IMPORTANT CHANGE:
-                // badge now depends only on version mismatch,
-                // download state is handled elsewhere (DownloadManager layer)
                 isBadgeVisible = isUpdate && latest != seen,
             )
         }
@@ -147,12 +132,7 @@ class AppUpdateRepositoryImpl(
                 isUpdateAvailable = isUpdate,
                 latestVersion = latest,
                 apkDownloadUrl = apkUrl,
-
-                // IMPORTANT CHANGE:
-                // NO longer responsible for install/download state
-                // (DownloadManager owns that now)
                 releasePageUrl = release.htmlUrl ?: UpdateStatus.RELEASES_URL,
-
                 isChecking = false,
                 checkFailed = false,
                 isBadgeVisible = isUpdate && latest != seen,
@@ -171,8 +151,10 @@ class AppUpdateRepositoryImpl(
                 "Unexpected response ${response.code}"
             }
 
-            val body = response.body.string()
-            return gson.fromJson(body, GithubRelease::class.java)
+            return gson.fromJson(
+                response.body.string(),
+                GithubRelease::class.java
+            )
         }
     }
 
