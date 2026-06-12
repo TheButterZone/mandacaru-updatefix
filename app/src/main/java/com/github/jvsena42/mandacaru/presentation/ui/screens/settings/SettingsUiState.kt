@@ -3,6 +3,7 @@ package com.github.jvsena42.mandacaru.presentation.ui.screens.settings
 import androidx.compose.runtime.Stable
 import com.florestad.Network
 import com.github.jvsena42.mandacaru.domain.model.UpdateStatus
+import com.github.jvsena42.mandacaru.domain.update.UpdateState
 import com.github.jvsena42.mandacaru.presentation.utils.DescriptorUtils
 import com.github.jvsena42.mandacaru.presentation.utils.WalletBirthday
 
@@ -13,35 +14,65 @@ data class PendingDescriptor(
 
 @Stable
 data class SettingsUiState(
+
+    // -------------------------
+    // EXISTING STATE (UNCHANGED)
+    // -------------------------
+
     val descriptorText: String = "",
     val isDescriptorScanSheetOpen: Boolean = false,
     val descriptorScanProgress: Float = 0f,
     val descriptorScanError: String = "",
     val pendingScannedDescriptor: PendingDescriptor? = null,
+
     val electrumAddress: String = "",
     val nodeAddress: String = "",
     val nodeAddressError: Int? = null,
     val isNodeAddressValid: Boolean = false,
+
     val snackBarMessage: String = "",
+
     val selectedNetwork: String = "",
     val isLoading: Boolean = false,
+
     val descriptors: List<String> = emptyList(),
     val network: List<Network> = Network.entries,
+
     val isDescriptorsExpanded: Boolean = false,
     val isNetworkExpanded: Boolean = false,
     val isNodeExpanded: Boolean = false,
     val isAboutExpanded: Boolean = false,
     val isDonateExpanded: Boolean = false,
+
     val walletBirthdayYear: Int = WalletBirthday.defaultYear(),
     val isBirthdayExpanded: Boolean = false,
     val isBirthdayPickerOpen: Boolean = false,
     val pendingBirthdayYear: Int? = null,
-    val updateStatus: UpdateStatus = UpdateStatus(),
+
     val isRescanning: Boolean = false,
     val rescanBlocksProcessed: Int? = null,
     val rescanBlocksTotal: Int? = null,
+
     val useAlsoMobileData: Boolean = false,
     val isDataUsageExpanded: Boolean = false,
+
     val enableAdvancedFeatures: Boolean = false,
     val isDeveloperToolsExpanded: Boolean = false,
+
+    // -------------------------
+    // UPDATE SYSTEM (NEW - SAFE ADDITION)
+    // -------------------------
+
+    val updateStatus: UpdateStatus = UpdateStatus(),
+
+    /**
+     * NEW: resolved UI state for update system
+     * (Download / Installing / Install ready / etc.)
+     */
+    val updateUiState: UpdateState = UpdateState.UpToDate,
+
+    /**
+     * TRUE when DownloadManager is actively downloading
+     */
+    val isUpdateDownloading: Boolean = false,
 )
