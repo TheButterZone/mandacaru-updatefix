@@ -1,59 +1,70 @@
 package com.github.jvsena42.mandacaru.data.update
 
-import com.github.jvsena42.mandacaru.data.PreferenceKeys
-import com.github.jvsena42.mandacaru.data.PreferencesDataSource
+import android.content.Context
+import android.content.SharedPreferences
+import android.net.Uri
 
 /**
- * Minimal persistent registry:
- * - prevents duplicate downloads
- * - stores last active download id + version
- *
- * DOES NOT track install state.
- * DOES NOT query DownloadManager.
+ * Persistent single source of truth for APK download tracking.
+ * Uses SharedPreferences to remember completed downloads across app restarts.
  */
-class UpdateDownloadRegistry(
-    private val prefs: PreferencesDataSource
-) {
+class UpdateDownloadRegistry(context: Context) {
 
-    suspend fun isDownloading(version: String): Boolean {
-        val activeVersion = prefs.getString(KEY_ACTIVE_VERSION, "")
-        val isDownloading = prefs.getBoolean(KEY_IS_DOWNLOADING, false)
-        return activeVersion == version && isDownloading
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("update_registry", Context.MODE_PRIVATE)
+
+    companion object {
+        private const val KEY_ACTIVE_DOWNLOAD_ID = "active_download_id"
+        private const val KEY_ACTIVE_VERSION = "active_version"
+        private const val KEY_COMPLETED_PREFIX = "completed_" // completed_<version> = uri string
     }
 
-    suspend fun isDownloaded(version: String): Boolean {
-        val completedVersion = prefs.getString(KEY_COMPLETED_VERSION, "")
-        return completedVersion == version
+    // ----------------------------
+    // MARK DOWNLOAD STARTED
+    // ----------------------------
+    fun markDownloading(version: String, downloadId: Long) {
+        prefs.edit()
+            .putLong(KEY_ACTIVE_DOWNLOAD_ID, downloadId)
+            .putString(KEY_ACTIVE_VERSION, version)
+            .apply()
     }
 
-    suspend fun markDownloading(version: String, downloadId: Long) {
-        prefs.setString(KEY_ACTIVE_VERSION, version)
-        prefs.setString(KEY_DOWNLOAD_ID, downloadId.toString())
-        prefs.setBoolean(KEY_IS_DOWNLOADING, true)
+    // ----------------------------
+    // MARK DOWNLOAD COMPLETED
+    // ----------------------------
+    fun markCompleted(downloadId: Long, uri: Uri) {
+        val version = prefs.getString(KEY_ACTIVE_VERSION, null) ?: return
+        prefs.edit()
+            .remove(KEY_ACTIVE_DOWNLOAD_ID)
+            .remove(KEY_ACTIVE_VERSION)
+            .putString("$KEY_COMPLETED_PREFIX$version", uri.toString())
+            .apply()
     }
 
-    suspend fun markCompleted(version: String) {
-        prefs.setString(KEY_COMPLETED_VERSION, version)
-        prefs.setBoolean(KEY_IS_DOWNLOADING, false)
-    }
+    // ----------------------------
+    // QUERY METHODS
+    // ----------------------------
 
+    /** Returns the currently active download ID, or null if none */
     fun getActiveDownloadId(): Long? {
-        return prefs.getString(KEY_DOWNLOAD_ID, "").toLongOrNull()
+        val id = prefs.getLong(KEY_ACTIVE_DOWNLOAD_ID, -1L)
+        return if (id != -1L) id else null
     }
 
-    suspend fun clearIfMatches(version: String) {
-        val active = prefs.getString(KEY_ACTIVE_VERSION, "")
-        if (active == version) {
-            prefs.setString(KEY_ACTIVE_VERSION, "")
-            prefs.setString(KEY_DOWNLOAD_ID, "")
-            prefs.setBoolean(KEY_IS_DOWNLOADING, false)
-        }
+    /** Returns URI of a completed version, or null if not downloaded */
+    fun getCompletedUri(version: String): Uri? {
+        val uriString = prefs.getString("$KEY_COMPLETED_PREFIX$version", null)
+        return uriString?.let(Uri::parse)
     }
 
-    private companion object {
-        const val KEY_ACTIVE_VERSION = "update_active_version"
-        const val KEY_COMPLETED_VERSION = "update_completed_version"
-        const val KEY_DOWNLOAD_ID = "update_download_id"
-        const val KEY_IS_DOWNLOADING = "update_is_downloading"
+    /** Is this version already downloaded? */
+    fun isDownloaded(version: String): Boolean {
+        return prefs.contains("$KEY_COMPLETED_PREFIX$version")
+    }
+
+    /** Is a download in progress for this version? */
+    fun isDownloading(version: String): Boolean {
+        return prefs.getString(KEY_ACTIVE_VERSION, null) == version &&
+               prefs.contains(KEY_ACTIVE_DOWNLOAD_ID)
     }
 }
