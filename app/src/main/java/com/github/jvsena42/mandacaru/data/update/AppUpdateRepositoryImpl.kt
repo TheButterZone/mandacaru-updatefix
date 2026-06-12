@@ -78,6 +78,7 @@ class AppUpdateRepositoryImpl(
         val seen = preferencesDataSource.getString(
             PreferenceKeys.UPDATE_SEEN_VERSION,
             ""
+        )
 
         val isUpdate = VersionComparator.isNewer(
             latest,
