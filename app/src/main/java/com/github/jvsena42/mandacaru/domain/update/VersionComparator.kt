@@ -5,19 +5,30 @@ object VersionComparator {
     fun isNewer(remote: String, current: String): Boolean {
         val remoteParts = parse(remote)
         val currentParts = parse(current)
+
         val size = maxOf(remoteParts.size, currentParts.size)
-        for (index in 0 until size) {
-            val remoteValue = remoteParts.getOrElse(index) { 0 }
-            val currentValue = currentParts.getOrElse(index) { 0 }
-            if (remoteValue != currentValue) return remoteValue > currentValue
+
+        for (i in 0 until size) {
+            val r = remoteParts.getOrElse(i) { 0 }
+            val c = currentParts.getOrElse(i) { 0 }
+
+            if (r != c) return r > c
         }
+
         return false
     }
 
-    private fun parse(version: String): List<Int> =
-        version.trim()
+    private fun parse(version: String): List<Int> {
+        val clean = version.trim()
             .removePrefix("v")
             .removePrefix("V")
-            .split(".")
-            .map { part -> part.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+
+        if (clean.isEmpty()) return listOf(0)
+
+        return clean.split(".")
+            .map { part ->
+                part.takeWhile(Char::isDigit)
+                    .toIntOrNull() ?: 0
+            }
+    }
 }
