@@ -1,26 +1,27 @@
 package com.github.jvsena42.mandacaru.data.update
 
+import android.net.Uri
+
 /**
- * Tracks an active or completed APK download.
+ * Single runtime source of truth for an in-progress or completed update download.
  *
- * This is persisted indirectly via PreferencesDataSource / registry,
- * and used by UpdateStateResolver to decide UI state.
+ * This replaces scattered booleans like:
+ * - isUpdateDownloading
+ * - partial resolver inference
+ *
+ * UI should derive ALL download state from this.
  */
 data class UpdateDownloadState(
     val version: String,
     val downloadId: Long,
+
+    /**
+     * True once DownloadManager reports success
+     */
     val isCompleted: Boolean = false,
-    val uri: String? = null
-) {
 
-    fun markCompleted(localUri: String): UpdateDownloadState {
-        return copy(
-            isCompleted = true,
-            uri = localUri
-        )
-    }
-
-    fun isSameVersion(otherVersion: String): Boolean {
-        return version == otherVersion
-    }
-}
+    /**
+     * Local file Uri once download is finished
+     */
+    val uri: Uri? = null
+)
