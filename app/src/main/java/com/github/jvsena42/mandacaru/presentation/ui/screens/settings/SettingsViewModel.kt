@@ -76,7 +76,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER (FINAL CLEAN STATE MACHINE)
+    // UPDATE OBSERVER
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -99,7 +99,6 @@ class SettingsViewModel(
                     )
                 }
 
-                // Auto-install trigger (UI-driven side effect)
                 if (resolved is UpdateState.ReadyToInstall) {
                     viewModelScope.sendEvent(
                         SettingsEvents.OpenInstallPrompt(resolved.uri)
@@ -110,7 +109,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE DOWNLOAD (SINGLE SOURCE OF TRUTH)
+    // UPDATE DOWNLOAD
     // ----------------------------
     private fun getUpdate() {
         val status = _uiState.value.updateStatus
