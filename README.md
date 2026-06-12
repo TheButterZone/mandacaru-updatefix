@@ -1,4 +1,3 @@
-
 # Mandacaru 🌵
 
 A lightweight Bitcoin validator node for Android, powered by [Utreexo](https://dci.mit.edu/utreexo) and [Floresta](https://github.com/vinteumorg/Floresta).
