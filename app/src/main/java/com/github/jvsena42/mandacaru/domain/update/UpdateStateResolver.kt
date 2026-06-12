@@ -6,12 +6,14 @@ import android.net.Uri
 import com.github.jvsena42.mandacaru.data.update.UpdateDownloadState
 
 /**
- * Converts raw DownloadManager + app state into UI-friendly update states.
+ * Single source-of-truth resolver for update UI state.
  *
- * THIS is what drives:
- * - "Download" button
- * - "Downloading" progress state
- * - "Install" button visibility
+ * Inputs:
+ * - remote update availability (UpdateStatus)
+ * - local download state (UpdateDownloadState)
+ *
+ * Output:
+ * - UpdateState (UI state machine)
  */
 class UpdateStateResolver(
     private val context: Context
@@ -21,21 +23,15 @@ class UpdateStateResolver(
 
     fun resolve(
         status: com.github.jvsena42.mandacaru.domain.model.UpdateStatus,
-        download: UpdateDownloadState?,
-        downloadUri: Uri?
+        download: UpdateDownloadState?
     ): UpdateState {
 
-        // 1. No update available at all
+        // 1. No update available
         if (!status.isUpdateAvailable) {
             return UpdateState.NoUpdate
         }
 
-        // 2. Already downloaded + marked ready
-        if (download?.isCompleted == true || downloadUri != null) {
-            return UpdateState.ReadyToInstall(downloadUri ?: Uri.EMPTY)
-        }
-
-        // 3. Active download
+        // 2. Download exists → check DownloadManager
         if (download != null) {
 
             val cursor = dm.query(
@@ -45,10 +41,10 @@ class UpdateStateResolver(
             cursor.use {
                 if (!it.moveToFirst()) return UpdateState.Available
 
-                val statusIndex = it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
-                val dmStatus = it.getInt(statusIndex)
+                val statusIndex =
+                    it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
 
-                return when (dmStatus) {
+                return when (it.getInt(statusIndex)) {
 
                     DownloadManager.STATUS_RUNNING ->
                         UpdateState.Downloading
@@ -72,7 +68,7 @@ class UpdateStateResolver(
             }
         }
 
-        // 4. Default fallback
+        // 3. Update exists but no download started
         return UpdateState.Available
     }
 }
