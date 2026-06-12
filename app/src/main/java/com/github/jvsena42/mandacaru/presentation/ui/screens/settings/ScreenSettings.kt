@@ -1,3 +1,5 @@
+@file:Suppress("UnusedPrivateProperty", "WildcardImport")
+
 package com.github.jvsena42.mandacaru.presentation.ui.screens.settings
 
 import android.content.Intent
