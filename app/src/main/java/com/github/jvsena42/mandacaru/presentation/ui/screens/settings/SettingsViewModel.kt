@@ -8,14 +8,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.jvsena42.mandacaru.data.AppUpdateRepository
 import com.github.jvsena42.mandacaru.data.FlorestaRpc
-import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
+import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.update.UpdateDownloadRegistry
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorQrScanner
 import com.github.jvsena42.mandacaru.domain.update.UpdateState
 import com.github.jvsena42.mandacaru.domain.update.UpdateStateResolver
 import com.github.jvsena42.mandacaru.presentation.utils.*
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -57,8 +56,7 @@ class SettingsViewModel(
                 _uiState.update {
                     it.copy(
                         updateStatus = status,
-                        updateUiState = resolved,
-                        isUpdateDownloading = resolved is UpdateState.Downloading
+                        updateUiState = resolved
                     )
                 }
 
@@ -99,5 +97,7 @@ class SettingsViewModel(
         }
     }
 
-    // ---- rest unchanged ----
+    // -------------------------
+    // EVERYTHING ELSE UNCHANGED
+    // -------------------------
 }
