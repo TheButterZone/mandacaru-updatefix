@@ -5,50 +5,74 @@ import android.content.Context
 import android.net.Uri
 import com.github.jvsena42.mandacaru.data.update.UpdateDownloadState
 
+/**
+ * Converts raw DownloadManager + app state into UI-friendly update states.
+ *
+ * THIS is what drives:
+ * - "Download" button
+ * - "Downloading" progress state
+ * - "Install" button visibility
+ */
 class UpdateStateResolver(
     private val context: Context
 ) {
 
-    private val dm = context.getSystemService(DownloadManager::class.java)
+    private val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-    fun resolve(state: UpdateDownloadState?): UpdateState {
+    fun resolve(
+        status: com.github.jvsena42.mandacaru.domain.model.UpdateStatus,
+        download: UpdateDownloadState?,
+        downloadUri: Uri?
+    ): UpdateState {
 
-        if (state == null) return UpdateState.Available
+        // 1. No update available at all
+        if (!status.isUpdateAvailable) {
+            return UpdateState.NoUpdate
+        }
 
-        val cursor = dm.query(
-            DownloadManager.Query().setFilterById(state.downloadId)
-        ) ?: return UpdateState.Available
+        // 2. Already downloaded + marked ready
+        if (download?.isCompleted == true || downloadUri != null) {
+            return UpdateState.ReadyToInstall(downloadUri ?: Uri.EMPTY)
+        }
 
-        cursor.use {
-            if (!it.moveToFirst()) return UpdateState.Available
+        // 3. Active download
+        if (download != null) {
 
-            val status = it.getInt(
-                it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
-            )
+            val cursor = dm.query(
+                DownloadManager.Query().setFilterById(download.downloadId)
+            ) ?: return UpdateState.Available
 
-            return when (status) {
+            cursor.use {
+                if (!it.moveToFirst()) return UpdateState.Available
 
-                DownloadManager.STATUS_RUNNING ->
-                    UpdateState.Downloading
+                val statusIndex = it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+                val dmStatus = it.getInt(statusIndex)
 
-                DownloadManager.STATUS_PAUSED ->
-                    UpdateState.Downloading
+                return when (dmStatus) {
 
-                DownloadManager.STATUS_PENDING ->
-                    UpdateState.Downloading
+                    DownloadManager.STATUS_RUNNING ->
+                        UpdateState.Downloading
 
-                DownloadManager.STATUS_SUCCESSFUL -> {
-                    val uriString = it.getString(
-                        it.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)
-                    )
+                    DownloadManager.STATUS_SUCCESSFUL -> {
+                        val uriIndex =
+                            it.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)
 
-                    val uri = Uri.parse(uriString)
+                        val uriString = it.getString(uriIndex)
+                        val uri = uriString?.let(Uri::parse)
 
-                    UpdateState.ReadyToInstall(uri)
+                        if (uri != null) {
+                            UpdateState.ReadyToInstall(uri)
+                        } else {
+                            UpdateState.Available
+                        }
+                    }
+
+                    else -> UpdateState.Available
                 }
-
-                else -> UpdateState.Available
             }
         }
+
+        // 4. Default fallback
+        return UpdateState.Available
     }
 }
