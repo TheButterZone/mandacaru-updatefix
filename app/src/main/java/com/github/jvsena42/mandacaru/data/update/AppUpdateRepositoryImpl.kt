@@ -35,54 +35,111 @@ class AppUpdateRepositoryImpl(
 
     override suspend fun refresh(force: Boolean) = withContext(Dispatchers.IO) {
         emitCachedStatus()
+
         if (!force && !isCheckDue()) return@withContext
-        _updateStatus.update { it.copy(isChecking = true, checkFailed = false) }
+
+        _updateStatus.update {
+            it.copy(
+                isChecking = true,
+                checkFailed = false
+            )
+        }
+
         runCatching { fetchLatestRelease() }
             .onSuccess { release -> applyRelease(release) }
             .onFailure { error ->
                 Log.w(TAG, "refresh: failed to check for updates", error)
-                _updateStatus.update { it.copy(isChecking = false, checkFailed = true) }
+                _updateStatus.update {
+                    it.copy(
+                        isChecking = false,
+                        checkFailed = true
+                    )
+                }
             }
-        Unit
     }
 
     override suspend fun markUpdateSeen() {
         val latest = _updateStatus.value.latestVersion
         if (latest.isEmpty()) return
-        preferencesDataSource.setString(PreferenceKeys.UPDATE_SEEN_VERSION, latest)
-        _updateStatus.update { it.copy(isBadgeVisible = false) }
+
+        preferencesDataSource.setString(
+            PreferenceKeys.UPDATE_SEEN_VERSION,
+            latest
+        )
+
+        _updateStatus.update {
+            it.copy(isBadgeVisible = false)
+        }
     }
 
     private suspend fun emitCachedStatus() {
-        val latest = preferencesDataSource.getString(PreferenceKeys.UPDATE_LATEST_VERSION, "")
+        val latest = preferencesDataSource.getString(
+            PreferenceKeys.UPDATE_LATEST_VERSION,
+            ""
+        )
+
         if (latest.isEmpty()) return
-        val apkUrl = preferencesDataSource.getString(PreferenceKeys.UPDATE_LATEST_APK_URL, "")
-        val seen = preferencesDataSource.getString(PreferenceKeys.UPDATE_SEEN_VERSION, "")
-        val isUpdate = VersionComparator.isNewer(latest, BuildConfig.VERSION_NAME)
+
+        val apkUrl = preferencesDataSource.getString(
+            PreferenceKeys.UPDATE_LATEST_APK_URL,
+            ""
+        )
+
+        val seen = preferencesDataSource.getString(
+            PreferenceKeys.UPDATE_SEEN_VERSION,
+            ""
+        )
+
+        val isUpdate = VersionComparator.isNewer(
+            latest,
+            BuildConfig.VERSION_NAME
+        )
+
         _updateStatus.update {
             it.copy(
                 isUpdateAvailable = isUpdate,
                 latestVersion = latest,
                 apkDownloadUrl = apkUrl.ifEmpty { null },
+
+                // IMPORTANT CHANGE:
+                // badge now depends only on version mismatch,
+                // download state is handled elsewhere (DownloadManager layer)
                 isBadgeVisible = isUpdate && latest != seen,
             )
         }
     }
 
     private suspend fun applyRelease(release: GithubRelease) {
-        val latest = release.tagName.orEmpty().removePrefix("v").removePrefix("V")
+        val latest = release.tagName
+            .orEmpty()
+            .removePrefix("v")
+            .removePrefix("V")
+
         val apkUrl = release.assets
             .firstOrNull { it.name?.endsWith(APK_SUFFIX) == true }
             ?.browserDownloadUrl
-        val isUpdate = latest.isNotEmpty() &&
-            VersionComparator.isNewer(latest, BuildConfig.VERSION_NAME)
-        val seen = preferencesDataSource.getString(PreferenceKeys.UPDATE_SEEN_VERSION, "")
 
-        preferencesDataSource.setString(PreferenceKeys.UPDATE_LATEST_VERSION, latest)
-        preferencesDataSource.setString(PreferenceKeys.UPDATE_LATEST_APK_URL, apkUrl.orEmpty())
+        val isUpdate = latest.isNotEmpty() &&
+                VersionComparator.isNewer(latest, BuildConfig.VERSION_NAME)
+
+        val seen = preferencesDataSource.getString(
+            PreferenceKeys.UPDATE_SEEN_VERSION,
+            ""
+        )
+
+        preferencesDataSource.setString(
+            PreferenceKeys.UPDATE_LATEST_VERSION,
+            latest
+        )
+
+        preferencesDataSource.setString(
+            PreferenceKeys.UPDATE_LATEST_APK_URL,
+            apkUrl.orEmpty()
+        )
+
         preferencesDataSource.setString(
             PreferenceKeys.UPDATE_LAST_CHECK,
-            System.currentTimeMillis().toString(),
+            System.currentTimeMillis().toString()
         )
 
         _updateStatus.update {
@@ -90,7 +147,12 @@ class AppUpdateRepositoryImpl(
                 isUpdateAvailable = isUpdate,
                 latestVersion = latest,
                 apkDownloadUrl = apkUrl,
+
+                // IMPORTANT CHANGE:
+                // NO longer responsible for install/download state
+                // (DownloadManager owns that now)
                 releasePageUrl = release.htmlUrl ?: UpdateStatus.RELEASES_URL,
+
                 isChecking = false,
                 checkFailed = false,
                 isBadgeVisible = isUpdate && latest != seen,
@@ -103,8 +165,12 @@ class AppUpdateRepositoryImpl(
             .url(LATEST_RELEASE_URL)
             .header("Accept", "application/vnd.github+json")
             .build()
+
         client.newCall(request).execute().use { response ->
-            require(response.isSuccessful) { "Unexpected response ${response.code}" }
+            require(response.isSuccessful) {
+                "Unexpected response ${response.code}"
+            }
+
             val body = response.body.string()
             return gson.fromJson(body, GithubRelease::class.java)
         }
@@ -114,16 +180,22 @@ class AppUpdateRepositoryImpl(
         val lastCheck = preferencesDataSource
             .getString(PreferenceKeys.UPDATE_LAST_CHECK, "")
             .toLongOrNull() ?: 0L
+
         return System.currentTimeMillis() - lastCheck >= CHECK_INTERVAL_MS
     }
 
     companion object {
         private const val TAG = "AppUpdateRepository"
+
         private const val APK_SUFFIX = ".apk"
+
         private const val CONNECT_TIMEOUT_SECONDS = 10L
         private const val READ_TIMEOUT_SECONDS = 30L
+
         private const val CHECK_INTERVAL_HOURS = 24L
-        private val CHECK_INTERVAL_MS = TimeUnit.HOURS.toMillis(CHECK_INTERVAL_HOURS)
+        private val CHECK_INTERVAL_MS =
+            TimeUnit.HOURS.toMillis(CHECK_INTERVAL_HOURS)
+
         private const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/jvsena42/mandacaru/releases/latest"
     }
