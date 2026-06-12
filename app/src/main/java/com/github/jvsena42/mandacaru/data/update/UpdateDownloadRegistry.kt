@@ -1,52 +1,91 @@
 package com.github.jvsena42.mandacaru.data.update
 
+import android.content.Context
+import android.net.Uri
+import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
+import kotlinx.coroutines.runBlocking
 
 /**
- * Keeps track of which update is actively downloading or completed.
- * Does NOT store URIs or duplicate DownloadManager state.
+ * Persistent registry for APK downloads.
+ *
+ * Tracks the last downloaded version + download ID in PreferencesDataSource.
+ * Acts as the single source of truth for update download state.
  */
 class UpdateDownloadRegistry(
+    private val context: Context,
     private val prefs: PreferencesDataSource
 ) {
 
-    suspend fun isDownloading(version: String): Boolean {
-        return prefs.getString(KEY_ACTIVE_VERSION, "") == version &&
-               prefs.getBoolean(KEY_IS_DOWNLOADING, false)
+    companion object {
+        private const val KEY_LAST_VERSION = "update_last_version"
+        private const val KEY_LAST_DOWNLOAD_ID = "update_last_download_id"
     }
 
-    suspend fun isDownloaded(version: String): Boolean {
-        return prefs.getString(KEY_COMPLETED_VERSION, "") == version
+    /**
+     * Returns the active download ID, if any.
+     */
+    fun getActiveDownloadId(): Long? = runBlocking {
+        val idStr = prefs.getString(PreferenceKeys(KEY_LAST_DOWNLOAD_ID), "-1")
+        val downloadId = idStr.toLongOrNull()
+        if (downloadId != null && downloadId != -1L) downloadId else null
     }
 
-    suspend fun markDownloading(version: String, downloadId: Long) {
-        prefs.setString(KEY_ACTIVE_VERSION, version)
-        prefs.setString(KEY_DOWNLOAD_ID, downloadId.toString())
-        prefs.setBoolean(KEY_IS_DOWNLOADING, true)
-    }
+    /**
+     * Returns the URI of the completed APK, if the last download succeeded.
+     */
+    fun getCompletedApkUri(): Uri? {
+        val version = runBlocking { prefs.getString(PreferenceKeys(KEY_LAST_VERSION), "") }
+        val downloadId = getActiveDownloadId() ?: return null
 
-    suspend fun markCompleted(version: String) {
-        prefs.setString(KEY_COMPLETED_VERSION, version)
-        prefs.setBoolean(KEY_IS_DOWNLOADING, false)
-    }
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+        val cursor = dm.query(android.app.DownloadManager.Query().setFilterById(downloadId)) ?: return null
 
-    suspend fun clear(version: String) {
-        val current = prefs.getString(KEY_ACTIVE_VERSION, "")
-        if (current == version) {
-            prefs.setString(KEY_ACTIVE_VERSION, "")
-            prefs.setString(KEY_DOWNLOAD_ID, "")
-            prefs.setBoolean(KEY_IS_DOWNLOADING, false)
+        cursor.use {
+            if (!it.moveToFirst()) return null
+            val statusIndex = it.getColumnIndex(android.app.DownloadManager.COLUMN_STATUS)
+            val status = it.getInt(statusIndex)
+            if (status != android.app.DownloadManager.STATUS_SUCCESSFUL) return null
+
+            val uriIndex = it.getColumnIndex(android.app.DownloadManager.COLUMN_LOCAL_URI)
+            val uriString = it.getString(uriIndex)
+            return uriString?.let(Uri::parse)
         }
     }
 
-    fun getActiveDownloadId(): Long? {
-        return prefs.getString(KEY_DOWNLOAD_ID, null)?.toLongOrNull()
+    /**
+     * Marks a version as currently downloading.
+     */
+    fun markDownloading(version: String, downloadId: Long) {
+        runBlocking {
+            prefs.setString(PreferenceKeys(KEY_LAST_VERSION), version)
+            prefs.setString(PreferenceKeys(KEY_LAST_DOWNLOAD_ID), downloadId.toString())
+        }
     }
 
-    private companion object {
-        const val KEY_ACTIVE_VERSION = "update_active_version"
-        const val KEY_COMPLETED_VERSION = "update_completed_version"
-        const val KEY_DOWNLOAD_ID = "update_download_id"
-        const val KEY_IS_DOWNLOADING = "update_is_downloading"
+    /**
+     * Checks if a version is already downloaded.
+     */
+    fun isDownloaded(version: String): Boolean {
+        val lastVersion = runBlocking { prefs.getString(PreferenceKeys(KEY_LAST_VERSION), "") }
+        val uri = getCompletedApkUri()
+        return lastVersion == version && uri != null
+    }
+
+    /**
+     * Checks if a version is currently being downloaded.
+     */
+    fun isDownloading(version: String): Boolean {
+        val lastVersion = runBlocking { prefs.getString(PreferenceKeys(KEY_LAST_VERSION), "") }
+        val downloadId = getActiveDownloadId() ?: return false
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+        val cursor = dm.query(android.app.DownloadManager.Query().setFilterById(downloadId)) ?: return false
+
+        cursor.use {
+            if (!it.moveToFirst()) return false
+            val statusIndex = it.getColumnIndex(android.app.DownloadManager.COLUMN_STATUS)
+            val status = it.getInt(statusIndex)
+            return lastVersion == version && status == android.app.DownloadManager.STATUS_RUNNING
+        }
     }
 }
