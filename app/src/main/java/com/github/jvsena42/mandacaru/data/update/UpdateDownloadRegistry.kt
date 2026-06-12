@@ -1,36 +1,54 @@
 package com.github.jvsena42.mandacaru.data.update
 
 import android.content.Context
-import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
 
+/**
+ * Prevents:
+ * - duplicate downloads
+ * - re-downloading same version
+ * - file spam (-1, -2, etc.)
+ */
 class UpdateDownloadRegistry(
-    private val preferences: PreferencesDataSource,
-    private val context: Context
+    private val prefs: PreferencesDataSource
 ) {
 
-    suspend fun isSameVersionAlreadyHandled(version: String): Boolean {
-        val storedVersion = preferences.getString(KEY_VERSION, "")
-        return storedVersion == version
+    suspend fun isDownloading(version: String): Boolean {
+        return prefs.getString(KEY_ACTIVE_VERSION, "") == version
     }
 
-    suspend fun markVersion(version: String, downloadId: Long) {
-        preferences.setString(KEY_VERSION, version)
-        preferences.setString(KEY_DOWNLOAD_ID, downloadId.toString())
+    suspend fun isDownloaded(version: String): Boolean {
+        return prefs.getString(KEY_COMPLETED_VERSION, "") == version
     }
 
-    suspend fun getStoredDownloadId(): Long? {
-        return preferences.getString(KEY_DOWNLOAD_ID, "")
-            .toLongOrNull()
+    suspend fun markDownloading(version: String, downloadId: Long) {
+        prefs.setString(KEY_ACTIVE_VERSION, version)
+        prefs.setString(KEY_DOWNLOAD_ID, downloadId.toString())
+        prefs.setBoolean(KEY_IS_DOWNLOADING, true)
     }
 
-    suspend fun clear() {
-        preferences.setString(KEY_VERSION, "")
-        preferences.setString(KEY_DOWNLOAD_ID, "")
+    suspend fun markCompleted(version: String) {
+        prefs.setString(KEY_COMPLETED_VERSION, version)
+        prefs.setBoolean(KEY_IS_DOWNLOADING, false)
     }
 
-    companion object {
-        private const val KEY_VERSION = "update_last_version"
-        private const val KEY_DOWNLOAD_ID = "update_last_download_id"
+    suspend fun clear(version: String) {
+        val current = prefs.getString(KEY_ACTIVE_VERSION, "")
+        if (current == version) {
+            prefs.setString(KEY_ACTIVE_VERSION, "")
+            prefs.setString(KEY_DOWNLOAD_ID, "")
+            prefs.setBoolean(KEY_IS_DOWNLOADING, false)
+        }
+    }
+
+    fun getActiveDownloadId(): Long? {
+        return prefs.getString(KEY_DOWNLOAD_ID, null)?.toLongOrNull()
+    }
+
+    private companion object {
+        const val KEY_ACTIVE_VERSION = "update_active_version"
+        const val KEY_COMPLETED_VERSION = "update_completed_version"
+        const val KEY_DOWNLOAD_ID = "update_download_id"
+        const val KEY_IS_DOWNLOADING = "update_is_downloading"
     }
 }
