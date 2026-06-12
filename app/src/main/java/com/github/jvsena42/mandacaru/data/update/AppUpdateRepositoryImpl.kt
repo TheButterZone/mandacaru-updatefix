@@ -38,7 +38,9 @@ class AppUpdateRepositoryImpl(
 
         if (!force && !isCheckDue()) return@withContext
 
-        _updateStatus.update { it.copy(isChecking = true, checkFailed = false) }
+        _updateStatus.update {
+            it.copy(isChecking = true, checkFailed = false)
+        }
 
         runCatching { fetchLatestRelease() }
             .onSuccess { applyRelease(it) }
@@ -59,7 +61,9 @@ class AppUpdateRepositoryImpl(
             latest
         )
 
-        _updateStatus.update { it.copy(isBadgeVisible = false) }
+        _updateStatus.update {
+            it.copy(isBadgeVisible = false)
+        }
     }
 
     private suspend fun emitCachedStatus() {
@@ -81,8 +85,8 @@ class AppUpdateRepositoryImpl(
         )
 
         val isUpdate = VersionComparator.isNewer(
-            latest,
-            BuildConfig.VERSION_NAME
+            remote = latest,
+            current = BuildConfig.VERSION_NAME
         )
 
         _updateStatus.update {
@@ -160,9 +164,10 @@ class AppUpdateRepositoryImpl(
     }
 
     private suspend fun isCheckDue(): Boolean {
-        val lastCheck = preferencesDataSource
-            .getString(PreferenceKeys.UPDATE_LAST_CHECK, "")
-            .toLongOrNull() ?: 0L
+        val lastCheck = preferencesDataSource.getString(
+            PreferenceKeys.UPDATE_LAST_CHECK,
+            ""
+        ).toLongOrNull() ?: 0L
 
         return System.currentTimeMillis() - lastCheck >= CHECK_INTERVAL_MS
     }
