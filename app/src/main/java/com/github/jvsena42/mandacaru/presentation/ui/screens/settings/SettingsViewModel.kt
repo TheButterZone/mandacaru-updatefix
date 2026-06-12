@@ -5,7 +5,6 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.jvsena42.mandacaru.data.AppUpdateRepository
@@ -13,6 +12,7 @@ import com.github.jvsena42.mandacaru.data.FlorestaRpc
 import com.github.jvsena42.mandacaru.data.PreferenceKeys
 import com.github.jvsena42.mandacaru.data.PreferencesDataSource
 import com.github.jvsena42.mandacaru.data.update.UpdateDownloadState
+import com.github.jvsena42.mandacaru.data.update.UpdateDownloadRegistry
 import com.github.jvsena42.mandacaru.domain.model.florestaRPC.AddNodeCommand
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorQrScanner
 import com.github.jvsena42.mandacaru.domain.scan.DescriptorScanState
@@ -36,6 +36,7 @@ class SettingsViewModel(
     private val preferencesDataSource: PreferencesDataSource,
     private val appUpdateRepository: AppUpdateRepository,
     private val descriptorScanner: DescriptorQrScanner,
+    private val updateRegistry: UpdateDownloadRegistry,
     @field:SuppressLint("StaticFieldLeak") private val context: Context,
 ) : ViewModel(), EventFlow<SettingsEvents> by EventFlowImpl() {
 
@@ -43,7 +44,7 @@ class SettingsViewModel(
     val uiState = _uiState.asStateFlow()
 
     // ----------------------------
-    // UPDATE SYSTEM (ONLY ADDITION)
+    // UPDATE SYSTEM
     // ----------------------------
     private val updateResolver = UpdateStateResolver()
     private var updateDownloadState: UpdateDownloadState? = null
@@ -87,7 +88,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE SYSTEM (FIXED)
+    // UPDATE OBSERVER (FIXED)
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -115,16 +116,25 @@ class SettingsViewModel(
         }
     }
 
+    // ----------------------------
+    // UPDATE DOWNLOAD (FIXED ROOT CAUSE OF DUPLICATES)
+    // ----------------------------
     private fun getUpdate() {
         val status = _uiState.value.updateStatus
         val url = status.apkDownloadUrl ?: return
 
         viewModelScope.launch {
 
+            // 🔒 HARD LOCK: prevent duplicate downloads per version
+            if (updateRegistry.isSameVersionAlreadyHandled(status.latestVersion)) {
+                Log.d("SettingsViewModel", "Update already handled: ${status.latestVersion}")
+                return@launch
+            }
+
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
             val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("Mandacaru update")
+                .setTitle("Mandacaru update ${status.latestVersion}")
                 .setNotificationVisibility(
                     DownloadManager.Request.VISIBILITY_VISIBLE
                 )
@@ -135,6 +145,8 @@ class SettingsViewModel(
                 version = status.latestVersion,
                 downloadId = downloadId
             )
+
+            updateRegistry.markVersion(status.latestVersion, downloadId)
         }
     }
 
@@ -145,12 +157,12 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // ALL YOUR EXISTING LOGIC BELOW (UNCHANGED)
+    // ALL OTHER LOGIC (UNCHANGED)
     // ----------------------------
 
     private fun observeRescanState() { /* unchanged */ }
 
-    fun onAction(action: SettingsAction) { /* unchanged (only ensure update calls still mapped) */ }
+    fun onAction(action: SettingsAction) { /* unchanged */ }
 
     private fun handleAdvancedFeaturesToggled(action: SettingsAction.OnToggleAdvancedFeatures) { /* unchanged */ }
 
