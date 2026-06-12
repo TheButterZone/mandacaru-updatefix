@@ -34,7 +34,7 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val updateResolver = UpdateStateResolver(context)
+    private val updateResolver = UpdateStateResolver(context, updateRegistry)
 
     init {
         viewModelScope.launch {
