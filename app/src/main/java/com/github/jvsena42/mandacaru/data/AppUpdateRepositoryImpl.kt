@@ -1,4 +1,4 @@
-package com.github.jvsena42.mandacaru.data.update
+package com.github.jvsena42.mandacaru.data
 
 import android.util.Log
 import com.github.jvsena42.mandacaru.BuildConfig
