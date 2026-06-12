@@ -7,9 +7,7 @@ import android.content.Intent
 import android.net.Uri
 
 /**
- * Final link in the update pipeline:
- *
- * DownloadManager → Receiver → Registry → UI (Install ready)
+ * Marks completed downloads so UI can resolve "Ready to Install"
  */
 class UpdateDownloadReceiver : BroadcastReceiver() {
 
@@ -21,8 +19,9 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-        val query = DownloadManager.Query().setFilterById(downloadId)
-        val cursor = dm.query(query) ?: return
+        val cursor = dm.query(
+            DownloadManager.Query().setFilterById(downloadId)
+        ) ?: return
 
         cursor.use {
             if (!it.moveToFirst()) return
@@ -39,30 +38,27 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
 
             val uri = Uri.parse(uriString)
 
-            val version = resolveVersion(context, downloadId)
-
-            // 🔥 CRITICAL: mark install-ready state
-            // This is what your UI will react to
-            val registry = UpdateDownloadRegistry(
-                PreferencesDataSource(context)
-            )
-
-            kotlinx.coroutines.runBlocking {
-                registry.markCompleted(
-                    version = version,
-                    uri = uri.toString()
-                )
-            }
+            // Persist minimal completion marker (optional future use)
+            UpdateDownloadStateStoreLegacy.save(context, downloadId, uri)
         }
     }
+}
 
-    /**
-     * Best-effort version resolution.
-     * If unknown, UI still works (URI is enough for install).
-     */
-    private fun resolveVersion(context: Context, downloadId: Long): String {
-        val prefs = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
-        return prefs.getString("update_active_version", null)
-            ?: "unknown"
+/**
+ * TEMP internal helper to avoid reintroducing a full registry system.
+ * We keep persistence minimal and isolated.
+ */
+private object UpdateDownloadStateStoreLegacy {
+
+    private const val PREFS = "update_state"
+    private const val KEY_ID = "download_id"
+    private const val KEY_URI = "apk_uri"
+
+    fun save(context: Context, id: Long, uri: Uri) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_ID, id)
+            .putString(KEY_URI, uri.toString())
+            .apply()
     }
 }
