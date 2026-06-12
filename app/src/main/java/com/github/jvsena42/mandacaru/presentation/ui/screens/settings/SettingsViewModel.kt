@@ -35,6 +35,7 @@ class SettingsViewModel(
 
     private val updateResolver = UpdateStateResolver(context)
 
+    // ONLY in-memory tracking (no persistence)
     private var updateDownloadState: UpdateDownloadState? = null
 
     private var nodeAddressValidationJob: Job? = null
@@ -76,7 +77,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE OBSERVER
+    // UPDATE OBSERVER (CLEAN STATE MACHINE)
     // ----------------------------
     private fun observeUpdateStatus() {
 
@@ -109,7 +110,7 @@ class SettingsViewModel(
     }
 
     // ----------------------------
-    // UPDATE DOWNLOAD
+    // UPDATE DOWNLOAD (NO PERSISTENCE)
     // ----------------------------
     private fun getUpdate() {
         val status = _uiState.value.updateStatus
